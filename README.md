@@ -78,6 +78,73 @@ It does not require an API key, external LLM, embedding model, or vector databas
 
 The goal of this version is to demonstrate the core RAG workflow clearly and reliably before upgrading to a production LLM-based version.
 
+### RAG v1: Local TF-IDF Prototype
+
+The first version of this project implements a fully local and free RAG-style workflow:
+
+```text
+Markdown knowledge documents
+        ↓
+Document loading
+        ↓
+Chunk generation
+        ↓
+TF-IDF local retrieval
+        ↓
+Template-based pre-sales answer generation
+        ↓
+Source citation
+        ↓
+Human review
+```
+
+This version is useful for validating the core RAG workflow without requiring API keys, external LLMs, embedding models, or vector databases.
+
+---
+
+### RAG v2: Embedding + Chroma Semantic Retrieval
+
+The second version upgrades the retrieval layer from keyword-based TF-IDF search to embedding-based semantic retrieval.
+
+```text
+Markdown knowledge documents
+        ↓
+Document loading
+        ↓
+Chunk generation
+        ↓
+Sentence-transformers embeddings
+        ↓
+Chroma local vector store
+        ↓
+Semantic retrieval
+        ↓
+Template-based pre-sales answer generation
+        ↓
+Source citation
+        ↓
+Human review
+```
+
+In this version, each document chunk is converted into an embedding vector and stored in a local Chroma vector database. When a user asks a question, the question is also converted into an embedding, and Chroma retrieves the most semantically similar chunks.
+
+This allows the assistant to retrieve relevant knowledge even when the user does not use the exact same keywords as the source documents.
+
+For example:
+
+```text
+User question:
+Can InsightFlow AI work with our reporting dashboard and database?
+
+Possible retrieved knowledge:
+- Power BI integration
+- MySQL integration
+- BI dashboard workflow
+- API-based system integration
+```
+
+This makes the assistant closer to a real-world RAG application.
+
 ---
 
 ## Repository Structure
@@ -104,7 +171,12 @@ RAG-based-AI-Presales-Knowledge-Assistant/
 │   ├── chunk_documents.py
 │   ├── retrieve_context.py
 │   ├── generate_answer.py
-│   └── main.py
+│   ├── main.py
+│   ├── embedding_client.py
+│   ├── build_vector_store.py
+│   ├── retrieve_context_chroma.py
+│   ├── generate_answer_chroma.py
+│   └── main_chroma.py
 │
 ├── outputs/
 │   └── generated runtime files
@@ -311,6 +383,60 @@ Sources:
 
 ---
 
+## How to Run RAG v2 with Chroma
+
+### 1. Generate document chunks
+
+```powershell
+python rag_app\chunk_documents.py
+```
+
+### 2. Build the local Chroma vector store
+
+```powershell
+python rag_app\build_vector_store.py
+```
+
+This step converts document chunks into embeddings and stores them in:
+
+```text
+vector_store/chroma_db/
+```
+
+The `vector_store/` folder is ignored by Git because it is a local runtime artifact.
+
+### 3. Test Chroma semantic retrieval
+
+```powershell
+python rag_app\retrieve_context_chroma.py
+```
+
+This verifies that the system can retrieve relevant chunks through embedding-based semantic search.
+
+### 4. Generate a Chroma-based pre-sales answer
+
+```powershell
+python rag_app\generate_answer_chroma.py
+```
+
+### 5. Run the interactive Chroma assistant
+
+```powershell
+python rag_app\main_chroma.py
+```
+
+Example questions:
+
+```text
+Can InsightFlow AI work with our reporting dashboard and database?
+How does InsightFlow AI reduce hallucination risk?
+Can the product be deployed in a private environment?
+What pricing plans are available?
+Do you have any retail customer case studies?
+```
+
+---
+
 ## Human-in-the-loop Design
 
 This assistant does not directly send answers to clients.
@@ -332,7 +458,7 @@ This design reduces hallucination risk and prevents over-promising.
 
 ## Current Version vs. Future LLM Version
 
-### Current Version
+### RAG v1 — Local TF-IDF Version
 
 ```text
 Markdown documents
@@ -342,7 +468,19 @@ Markdown documents
 → source citation
 ```
 
-### Future Version
+### RAG v2 — Embedding + Chroma Version
+
+```text
+Markdown documents
+→ chunks
+→ sentence-transformers embeddings
+→ Chroma vector store
+→ semantic retrieval
+→ template-based answer
+→ source citation
+```
+
+### Future RAG v3 — LLM-powered AI Pre-sales Agent
 
 ```text
 Markdown / PDF / HTML documents
@@ -350,7 +488,8 @@ Markdown / PDF / HTML documents
 → embeddings
 → vector database
 → LLM-generated answer
-→ source citation
+→ customer-facing email draft
+→ follow-up recommendation
 → evaluation
 → human review
 ```
@@ -359,11 +498,13 @@ Future upgrades may include:
 
 - OpenAI / Gemini / Claude API integration
 - Local LLM integration through Ollama
-- Embedding-based retrieval with FAISS or Chroma
+- FAISS or Chroma vector store optimization
 - Streamlit web interface
 - Evaluation dataset and scoring
 - API service with FastAPI
-- Multi-role response style: sales, technical consultant, product manager
+- Intent classification through LLM
+- Automatic pre-sales email generation
+- Follow-up action recommendation
 
 ---
 
