@@ -1,0 +1,11 @@
+﻿question_id,question,expected_source,expected_answer_keywords
+Q001,Can InsightFlow AI connect to MySQL and Power BI?,04_deployment_guide.md;06_integrations_and_api.md,"MySQL, Power BI, data source, refresh"
+Q002,Is this system training its own large language model?,01_product_overview.md;02_faq.md,"not model training, LLM application, RAG"
+Q003,How does the assistant reduce hallucinations?,05_security_and_governance.md,"retrieved context, source references, human review"
+Q004,Can we use the system only as a draft generator?,05_security_and_governance.md;08_objection_handling.md,"draft, human approval, review"
+Q005,What is the difference between a FAQ page and the AI assistant?,08_objection_handling.md;02_faq.md,"natural language, retrieval, customer-ready answer"
+Q006,What should be included in a proof of concept?,03_pricing_and_packaging.md;09_presales_email_templates.md,"3 to 5 documents, 20 to 50 questions, source references"
+Q007,What deployment modes are supported?,04_deployment_guide.md,"local demo, internal prototype, enterprise deployment"
+Q008,What are common success metrics for this RAG assistant?,08_objection_handling.md,"accuracy, source relevance, time saved, approval rate"
+Q009,How should sensitive data be handled before building the knowledge base?,05_security_and_governance.md,"mask, remove, access control"
+Q010,Can this assistant help write English pre-sales email replies?,09_presales_email_templates.md,"email drafts, customer-facing, integration, security"
