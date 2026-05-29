@@ -174,43 +174,6 @@ Does the product support private deployment?
 
 ---
 
-# 保存后，5.31 的任务就完成
-
-完成并保存：
-
-```text
-docs/query_walkthrough.md
-```
-
-之后，5.31 的核心任务就完成了。
-
----
-
-# 今天最后一步：Git 提交
-
-如果你今天新增了 3 个文档，先运行：
-
-```powershell
-git status
-```
-
-你应该看到类似：
-
-```text
-docs/knowledge_base_review.md
-docs/rag_flow_notes.md
-docs/query_walkthrough.md
-```
-
-然后提交：
-
-```powershell
-git add docs/knowledge_base_review.md docs/rag_flow_notes.md docs/query_walkthrough.md
-git commit -m "docs: add knowledge base review and RAG walkthrough"
-git push origin main
-```
-
----
 
 # 今天的验收标准
 
