@@ -114,6 +114,58 @@ def infer_retrieval_confidence(retrieved_chunks: list[dict]) -> str:
     return "low"
 
 
+def is_out_of_scope_question(question: str) -> bool:
+    """
+    Detect questions that are clearly outside the product pre-sales knowledge base.
+
+    This is a lightweight guardrail for hallucination control.
+    """
+
+    q = question.lower()
+
+    out_of_scope_terms = [
+        "stock",
+        "trading",
+        "investment return",
+        "investment returns",
+        "guarantee profit",
+        "guarantee profits",
+        "medical diagnosis",
+        "legal advice",
+        "lawsuit",
+        "tax filing",
+    ]
+
+    return any(term in q for term in out_of_scope_terms)
+
+
+def should_refuse_answer(
+    question: str,
+    retrieved_chunks: list[dict],
+    retrieval_confidence: str,
+) -> tuple[bool, str]:
+    """
+    Decide whether the system should refuse to answer.
+
+    Refusal is triggered when:
+    1. The question is clearly outside the product pre-sales scope.
+    2. Retrieval confidence is too low.
+    """
+
+    if is_out_of_scope_question(question):
+        return True, "The question is outside the product pre-sales knowledge base."
+
+    if not retrieved_chunks:
+        return True, "No relevant knowledge base evidence was retrieved."
+
+    top_score = retrieved_chunks[0]["similarity_score"]
+
+    if retrieval_confidence == "low" or top_score < 0.15:
+        return True, "Retrieved evidence is not strong enough to support a reliable answer."
+
+    return False, ""
+
+
 def format_list_items(items: list[str]) -> str:
     """
     Format a list into Markdown bullets.
@@ -159,17 +211,108 @@ Return your response as JSON with exactly these fields:
 """
 
 
+def generate_refusal_answer(
+    question: str,
+    intent: str,
+    retrieved_chunks: list[dict],
+    retrieval_confidence: str,
+    refusal_reason: str,
+) -> str:
+    """
+    Generate a safe refusal answer when evidence is insufficient or out of scope.
+    """
+
+    sources_markdown = build_sources(retrieved_chunks)
+    sources_list = build_sources_list(retrieved_chunks)
+
+    answer = f"""# AI Pre-sales Copilot Answer
+
+## Question
+
+{question}
+
+## Detected Intent
+
+{intent}
+
+## LLM Mode
+
+rule_based_refusal
+
+## Confidence
+
+- Retrieval confidence: {retrieval_confidence}
+- LLM confidence: low
+
+## Answer
+
+I have insufficient evidence in the retrieved knowledge base to answer this question safely.
+
+Refusal reason: {refusal_reason}
+
+For this project, the AI Pre-sales Copilot should only answer questions grounded in product documentation, deployment guides, pricing notes, security documents, integrations, customer cases, and pre-sales templates.
+
+It cannot guarantee outcomes that are not supported by the knowledge base, such as stock trading profits.
+
+## Missing Information
+
+- Reliable product documentation supporting this claim
+- Approved business or legal commitment
+- Human review from a qualified solution consultant
+
+## Suggested Follow-up
+
+Could you clarify whether your question is about InsightFlow AI product capabilities, deployment, integration, pricing, security, or pre-sales usage?
+
+## Supporting Evidence from Knowledge Base
+
+{build_supporting_evidence(retrieved_chunks)}
+
+## Sources
+
+{sources_markdown}
+
+## Machine-readable Sources
+
+{sources_list}
+
+## Human Review Reminder
+
+This answer was refused because the retrieved evidence was insufficient or the question was outside the supported product pre-sales scope.
+"""
+
+    return answer
+
+
 def generate_chroma_answer(question: str, top_k: int = 5) -> str:
     """
     Generate a structured pre-sales answer using:
     1. Chroma semantic retrieval
-    2. Grounded prompt construction
-    3. Mock/API LLM client
-    4. Source citations
+    2. Hallucination guardrails
+    3. Grounded prompt construction
+    4. Mock/API LLM client
+    5. Source citations
     """
 
     retrieved_chunks = retrieve_relevant_chunks_chroma(question=question, top_k=top_k)
     intent = infer_question_intent(question)
+
+    retrieval_confidence = infer_retrieval_confidence(retrieved_chunks)
+
+    should_refuse, refusal_reason = should_refuse_answer(
+        question=question,
+        retrieved_chunks=retrieved_chunks,
+        retrieval_confidence=retrieval_confidence,
+    )
+
+    if should_refuse:
+        return generate_refusal_answer(
+            question=question,
+            intent=intent,
+            retrieved_chunks=retrieved_chunks,
+            retrieval_confidence=retrieval_confidence,
+            refusal_reason=refusal_reason,
+        )
 
     prompt = build_llm_prompt(
         question=question,
@@ -184,7 +327,6 @@ def generate_chroma_answer(question: str, top_k: int = 5) -> str:
 
     llm_response = call_llm(prompt=prompt, system_prompt=system_prompt)
 
-    retrieval_confidence = infer_retrieval_confidence(retrieved_chunks)
     sources_markdown = build_sources(retrieved_chunks)
     sources_list = build_sources_list(retrieved_chunks)
 
@@ -263,7 +405,7 @@ def save_answer(answer: str) -> None:
 
 
 if __name__ == "__main__":
-    sample_question = "Can InsightFlow AI support private deployment?"
+    sample_question = "Can InsightFlow AI guarantee stock trading profits?"
 
     result = generate_chroma_answer(sample_question, top_k=5)
     save_answer(result)

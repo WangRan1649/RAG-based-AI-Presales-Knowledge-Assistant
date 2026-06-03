@@ -9,8 +9,8 @@ This report evaluates the AI Pre-sales Copilot on a small portfolio evaluation d
 - Total questions: 11
 - Retrieval hit rate: 0.7273
 - Average source accuracy: 0.6818
-- Average answer keyword coverage: 0.7273
-- Low-confidence refusal count: 0
+- Average answer keyword coverage: 0.7879
+- Low-confidence refusal count: 1
 
 ## Detailed Results
 
@@ -26,7 +26,7 @@ This report evaluates the AI Pre-sales Copilot on a small portfolio evaluation d
 | Q008 | False | 0.0 | 0.0 | False | False |
 | Q009 | True | 1.0 | 1.0 | False | False |
 | Q010 | False | 0.0 | 1.0 | False | False |
-| Q011 | False | 0.0 | 0.3333 | True | False |
+| Q011 | False | 0.0 | 1.0 | True | True |
 
 ## Notes
 
