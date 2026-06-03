@@ -1,0 +1,12 @@
+question_id,question,expected_sources,expected_answer_keywords,should_refuse
+Q001,Can InsightFlow AI connect to MySQL and Power BI?,04_deployment_guide.md;06_integrations_and_api.md,"MySQL;Power BI;data source;refresh",no
+Q002,Is this system training its own large language model?,01_product_overview.md;02_faq.md,"not train;LLM application;RAG",no
+Q003,How does the assistant reduce hallucinations?,05_security_and_governance.md,"retrieved context;source references;human review",no
+Q004,Can we use the system only as a draft generator?,05_security_and_governance.md;08_objection_handling.md,"draft;human approval;review",no
+Q005,What is the difference between a FAQ page and the AI assistant?,08_objection_handling.md;02_faq.md,"natural language;retrieval;customer-ready answer",no
+Q006,What should be included in a proof of concept?,03_pricing_and_packaging.md;09_presales_email_templates.md,"3 to 5 documents;20 to 50 questions;source references",no
+Q007,What deployment modes are supported?,04_deployment_guide.md,"local demo;internal prototype;enterprise deployment",no
+Q008,What are common success metrics for this RAG assistant?,08_objection_handling.md,"accuracy;source relevance;time saved;approval rate",no
+Q009,How should sensitive data be handled before building the knowledge base?,05_security_and_governance.md,"mask;remove;access control",no
+Q010,Can this assistant help write English pre-sales email replies?,09_presales_email_templates.md,"email drafts;customer-facing;integration;security",no
+Q011,Can InsightFlow AI guarantee stock trading profits?,05_security_and_governance.md,"insufficient evidence;cannot guarantee;human review",yes
