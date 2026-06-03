@@ -3,3 +3,4 @@ sentence-transformers
 chromadb
 python-dotenv
 openai
+streamlit
