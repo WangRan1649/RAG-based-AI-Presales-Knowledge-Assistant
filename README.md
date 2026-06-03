@@ -1,149 +1,241 @@
-# RAG-based AI Pre-sales Knowledge Assistant
+# AI Pre-sales Copilot
 
-## 1. 项目概览
+# AI 售前助手项目
 
-本项目是一个面向 **B2B SaaS 售前场景** 的 **RAG 知识库助手**。
-
-它可以帮助销售工程师、售前顾问、解决方案顾问和客户成功团队，基于结构化的产品知识文档回答客户问题。
-
-系统会从 Markdown 格式的知识库中检索相关内容，并生成带有来源引用的回答。
-
-本项目不是一个通用聊天机器人，而是一个面向 **企业知识检索、售前问答、来源可追溯回答生成** 的 AI 应用原型。
+> RAG + LLM Client + Evaluation + Guardrails + Lightweight Tracing + Streamlit Demo
+> 面向 B2B SaaS 售前场景的 RAG + LLM 应用工程项目
 
 ---
 
-## 2. 业务问题
+## 1. Project Overview / 项目概览
 
-在 B2B SaaS 售前场景中，客户经常会提出以下问题：
+**AI Pre-sales Copilot** is a portfolio project for B2B SaaS pre-sales, AI Solutions, and LLM application engineering scenarios.
 
-* 产品支持哪些功能？
-* 价格和套餐有什么区别？
-* 是否支持私有化部署？
-* 数据安全如何保障？
-* 是否支持 API 集成？
-* 有没有类似行业的客户案例？
-* 如何回应客户的异议？
-* 如何撰写售前跟进邮件？
+It upgrades a basic RAG-based pre-sales knowledge assistant into a more complete AI application workflow:
 
-如果销售或售前团队完全依赖人工查找资料，通常会遇到以下问题：
+```text
+Markdown knowledge base
+→ document loading
+→ chunking
+→ sentence-transformers embeddings
+→ Chroma vector store
+→ semantic retrieval
+→ Mock/API LLM client
+→ grounded answer generation
+→ hallucination guardrails
+→ evaluation
+→ lightweight tracing
+→ Streamlit demo
+```
 
-1. **响应速度慢**
-   团队成员需要在多个产品文档中手动查找信息。
+中文说明：
 
-2. **回答不一致**
-   不同成员可能对同一产品能力给出不同解释。
+**AI Pre-sales Copilot** 是一个面向 B2B SaaS 售前、AI Solutions、LLM 应用工程方向的求职作品集项目。
 
-3. **缺少来源依据**
-   价格、部署、安全和客户承诺等敏感问题需要可靠来源支撑。
-
-4. **直接使用通用大模型存在幻觉风险**
-   如果大模型没有接入企业内部知识库，可能生成流畅但没有依据的回答。
-
-本项目通过 RAG 流程提升回答的一致性、可追溯性和可靠性。
-
----
-
-## 3. 解决方案概述
-
-本项目构建了一个本地 RAG 流程，整体工作流如下：
+它从一个基础的 RAG 售前知识库助手，升级成了一个更完整的 AI 应用系统：
 
 ```text
 Markdown 知识库
-↓
-文档加载
-↓
-文档切分
-↓
-Embedding 向量化
-↓
-Chroma 向量数据库
-↓
-Top-K 语义检索
-↓
-回答生成
-↓
-答案 + 来源引用
+→ 文档加载
+→ 文档切分
+→ sentence-transformers embedding
+→ Chroma 向量数据库
+→ 语义检索
+→ Mock/API 双模式 LLM Client
+→ 基于来源的结构化回答
+→ 幻觉控制与拒答
+→ RAG Evaluation
+→ 轻量 tracing
+→ Streamlit 展示页面
 ```
 
-当用户提出问题时，系统不会直接依赖模型内部知识生成回答。
+This project does **not** train a foundation model from scratch.
+It focuses on practical LLM application engineering: retrieval, grounding, evaluation, tracing, feedback, and demo delivery.
 
-它会先从知识库中检索相关文档片段，再基于检索到的内容生成回答。
+本项目不是训练大模型，也不是算法研究项目。
+它重点展示实用的 LLM 应用工程能力：检索、来源引用、评估、tracing、反馈闭环和 Demo 交付。
 
 ---
 
-## 4. 核心功能
+## 2. Business Problem / 业务问题
 
-* 结构化 B2B SaaS 售前知识库
-* Markdown 文档加载
-* 文档切分
-* 基于 sentence-transformers 的 embedding 生成
+In B2B SaaS pre-sales scenarios, customers often ask questions such as:
+
+* Can the product support private deployment?
+* Can it connect to MySQL, Power BI, or other business systems?
+* How does the system reduce hallucination risk?
+* What pricing or packaging options are available?
+* Can the assistant generate customer-facing follow-up emails?
+* Can the answer be traced back to reliable product documentation?
+
+中文说明：
+
+在 B2B SaaS 售前场景中，客户经常会问：
+
+* 产品是否支持私有化部署？
+* 是否能连接 MySQL、Power BI 或其他业务系统？
+* 系统如何降低幻觉风险？
+* 有哪些价格或套餐方案？
+* 是否能生成面向客户的英文跟进邮件？
+* 回答是否能追溯到可靠的产品文档？
+
+Traditional manual pre-sales support can be slow, inconsistent, and hard to trace.
+A generic chatbot may also generate unsupported claims if it is not grounded in the company knowledge base.
+
+传统人工售前支持可能响应慢、回答不一致、缺少来源依据。
+如果直接使用通用聊天机器人，也可能生成没有文档依据的回答。
+
+This project uses a RAG-based workflow to improve consistency, source grounding, and reviewability.
+
+本项目通过 RAG 流程提升回答的一致性、可追溯性和可审核性。
+
+---
+
+## 3. Key Features / 核心功能
+
+### English
+
+* Local Markdown-based pre-sales knowledge base
+* Document chunking and metadata tracking
+* Sentence-transformers embeddings
+* Chroma local vector store
+* Semantic Top-K retrieval
+* Mock/API dual-mode LLM client
+* Structured answer output
+* Source-grounded response generation
+* Confidence display
+* Missing information extraction
+* Suggested customer follow-up
+* Hallucination guardrails
+* Rule-based refusal for unsupported questions
+* Lightweight RAG evaluation pipeline
+* Query tracing with JSONL logs
+* User feedback logging
+* Streamlit demo UI
+
+### 中文
+
+* 本地 Markdown 售前知识库
+* 文档切分与 metadata 记录
+* sentence-transformers embedding
 * Chroma 本地向量数据库
 * Top-K 语义检索
-* 带来源引用的回答生成
-* 使用 Mock LLM / 模板化生成，保证本地可复现
-* 基于 CSV 的评估问题集
-* 面向高风险售前回答的 Human-in-the-loop 设计
+* Mock/API 双模式 LLM Client
+* 结构化回答输出
+* 基于来源的回答生成
+* 置信度展示
+* 缺失信息提示
+* 客户后续跟进建议
+* 幻觉控制机制
+* 对无依据问题进行规则拒答
+* 轻量 RAG Evaluation 流程
+* JSONL query tracing 日志
+* 用户反馈记录
+* Streamlit 可交互 Demo 页面
 
 ---
 
-## 5. 技术栈
-
-| 模块           | 工具 / 方法                              |
-| ------------ | ------------------------------------ |
-| 编程语言         | Python                               |
-| 知识库格式        | Markdown                             |
-| Embedding 模型 | sentence-transformers                |
-| 向量数据库        | Chroma                               |
-| 检索方式         | Top-K semantic retrieval             |
-| 回答生成         | Mock LLM / template-based generation |
-| 评估方式         | CSV-based manual evaluation          |
-| 版本控制         | Git / GitHub                         |
-| 未来 Demo 页面   | Streamlit                            |
-| 未来 API 层     | FastAPI                              |
-| 未来 LLM API   | OpenAI / Qwen / DeepSeek             |
-
----
-
-## 6. 系统架构
+## 4. Architecture / 架构流程
 
 ```text
-Markdown 知识库
-↓
-Load Documents
-↓
-Chunk Documents
-↓
-Document Chunks
-↓
-Embedding Model
-↓
-Chroma Vector Store
-↓
 User Question
-↓
-Question Embedding
-↓
-Top-K Retrieval
-↓
-Retrieved Context
-↓
-Answer Generation
-↓
-Answer + Sources
+    ↓
+Embedding Model
+    ↓
+Chroma Vector Store
+    ↓
+Top-K Retrieved Chunks
+    ↓
+Similarity Score + Source Metadata
+    ↓
+Hallucination Guardrails
+    ↓
+Mock/API LLM Client
+    ↓
+Structured Grounded Answer
+    ↓
+Tracing + Feedback Logging
+    ↓
+Streamlit Demo / CLI Output
 ```
 
-详细架构说明见：
+中文理解：
 
 ```text
-docs/architecture.md
+用户问题
+    ↓
+Embedding 模型
+    ↓
+Chroma 向量数据库
+    ↓
+Top-K 检索结果
+    ↓
+相似度分数 + 来源 metadata
+    ↓
+幻觉控制与拒答判断
+    ↓
+Mock/API 双模式 LLM Client
+    ↓
+结构化来源回答
+    ↓
+Tracing + 用户反馈日志
+    ↓
+Streamlit 页面 / 命令行输出
 ```
 
 ---
 
-## 7. 项目结构
+## 5. Tech Stack / 技术栈
+
+| Area            | Tools                                        |
+| --------------- | -------------------------------------------- |
+| Language        | Python                                       |
+| Retrieval       | sentence-transformers, Chroma                |
+| Vector Store    | ChromaDB                                     |
+| LLM Client      | Mock mode, OpenAI-compatible API mode        |
+| Configuration   | python-dotenv, `.env`, `.env.example`        |
+| Evaluation      | CSV dataset, custom Python evaluation script |
+| Observability   | JSONL query logs, CSV feedback logs          |
+| Demo UI         | Streamlit                                    |
+| Version Control | Git, GitHub                                  |
+
+中文说明：
+
+| 模块         | 工具                                    |
+| ---------- | ------------------------------------- |
+| 编程语言       | Python                                |
+| 检索         | sentence-transformers, Chroma         |
+| 向量数据库      | ChromaDB                              |
+| LLM Client | Mock 模式，OpenAI-compatible API 模式      |
+| 配置管理       | python-dotenv, `.env`, `.env.example` |
+| 评估         | CSV 测试集，自定义 Python 评估脚本               |
+| 可观测性       | JSONL query logs，CSV 用户反馈日志           |
+| 展示页面       | Streamlit                             |
+| 版本管理       | Git, GitHub                           |
+
+---
+
+## 6. Project Structure / 项目结构
 
 ```text
 RAG-based-AI-Presales-Knowledge-Assistant/
+│
+├── rag_app/
+│   ├── build_vector_store.py
+│   ├── chunk_documents.py
+│   ├── embedding_client.py
+│   ├── generate_answer_chroma.py
+│   ├── llm_client.py
+│   ├── main_chroma.py
+│   ├── retrieve_context_chroma.py
+│   └── trace_logger.py
+│
+├── eval/
+│   ├── eval_dataset.csv
+│   ├── eval_results.csv
+│   ├── run_eval.py
+│   └── sample_eval_questions.csv
+│
 ├── knowledge_base/
 │   ├── 01_product_overview.md
 │   ├── 02_faq.md
@@ -155,1362 +247,629 @@ RAG-based-AI-Presales-Knowledge-Assistant/
 │   ├── 08_objection_handling.md
 │   └── 09_presales_email_templates.md
 │
-├── rag_app/
-│   ├── load_documents.py
-│   ├── chunk_documents.py
-│   ├── embedding_client.py
-│   ├── build_vector_store.py
-│   ├── retrieve_context_chroma.py
-│   ├── generate_answer_chroma.py
-│   ├── generate_answer.py
-│   ├── main_chroma.py
-│   └── main.py
-│
-├── outputs/
-│   ├── document_chunks.json
-│   ├── sample_answer.md
-│   ├── sample_answer_chroma.md
-│   ├── demo_answer_01.md
-│   ├── demo_answer_02.md
-│   └── demo_answer_03.md
-│
-├── eval/
-│   └── sample_eval_questions.csv
-│
 ├── docs/
 │   ├── architecture.md
-│   ├── embedding_notes.md
-│   ├── vector_store_notes.md
-│   ├── retrieval_test_notes.md
-│   ├── answer_generation_notes.md
-│   ├── engineering_notes.md
+│   ├── demo_guide.md
+│   ├── demo_guide_zh.md
 │   ├── evaluation_report.md
-│   ├── interview_pitch.md
-│   ├── resume_bullets.md
-│   └── images/
+│   ├── observability_notes.md
+│   ├── observability_notes_zh.md
+│   ├── project_explanation_zh.md
+│   └── interview_pitch.md
 │
-├── vector_store/
+├── app_streamlit.py
 ├── requirements.txt
+├── .env.example
 ├── .gitignore
 └── README.md
 ```
 
 ---
 
-## 8. 知识库设计
+## 7. Setup / 环境准备
 
-本项目的知识库模拟了一个虚拟 B2B SaaS 产品 **InsightFlow AI** 的产品与售前资料。
+### 7.1 Enter Project Directory / 进入项目目录
 
-知识库包含以下文档：
+```cmd
+cd /d D:\chatgpt\RAG-based-AI-Presales-Knowledge-Assistant
+```
 
-| 文件                               | 作用                     |
-| -------------------------------- | ---------------------- |
-| `01_product_overview.md`         | 产品总览、目标用户和核心模块         |
-| `02_faq.md`                      | 客户常见问题                 |
-| `03_pricing_and_packaging.md`    | 价格套餐与包装说明              |
-| `04_deployment_guide.md`         | 云部署、私有化部署和实施说明         |
-| `05_security_and_governance.md`  | 数据安全、权限控制、审计日志和治理      |
-| `06_integrations_and_api.md`     | API 集成、CRM 集成和 BI 工具连接 |
-| `07_customer_case_studies.md`    | 客户案例和业务成果              |
-| `08_objection_handling.md`       | 常见销售异议和回应策略            |
-| `09_presales_email_templates.md` | 售前跟进邮件模板               |
+### 7.2 Create Virtual Environment / 创建虚拟环境
 
-该知识库不是随机文本，而是为了模拟真实 B2B SaaS 售前资料体系而设计。
+```cmd
+python -m venv .venv
+```
+
+### 7.3 Install Dependencies / 安装依赖
+
+```cmd
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+### 7.4 Environment Variables / 环境变量
+
+Copy `.env.example` to `.env`:
+
+```cmd
+copy .env.example .env
+```
+
+Default local mode:
+
+```env
+LLM_MODE=mock
+LLM_PROVIDER=openai
+LLM_MODEL=gpt-5.5
+OPENAI_API_KEY=your_api_key_here
+OPENAI_BASE_URL=https://api.openai.com/v1
+```
+
+中文说明：
+
+默认使用 `mock` 模式，不需要 API Key，也不会产生 API 成本。
+
+如果后续要切换真实 API，可以把：
+
+```env
+LLM_MODE=mock
+```
+
+改成：
+
+```env
+LLM_MODE=api
+```
+
+注意：
+
+```text
+.env 不提交 GitHub
+.env.example 可以提交 GitHub
+```
 
 ---
 
-## 9. RAG Pipeline
+## 8. Build Vector Store / 构建向量库
 
-### Step 1：加载文档
+If the vector store does not exist, run:
 
-对应文件：
-
-```text
-rag_app/load_documents.py
+```cmd
+.\.venv\Scripts\python.exe rag_app\build_vector_store.py
 ```
 
-作用：
-
-* 读取 `knowledge_base/` 中的 Markdown 文件
-* 保留文档来源信息
-* 将原始文档转换成程序可以处理的数据
-
----
-
-### Step 2：文档切分
-
-对应文件：
+This builds a Chroma vector store from Markdown files in:
 
 ```text
-rag_app/chunk_documents.py
+knowledge_base/
 ```
 
-作用：
-
-* 将较长的 Markdown 文档切分成较小的 chunks
-* 将 chunk 信息保存到 `outputs/document_chunks.json`
-
-每个 chunk 包含：
-
-```text
-chunk_id
-source_file
-chunk_index
-text
-```
-
-其中：
-
-* `text` 字段用于后续 embedding 和 retrieval
-* `source_file` 字段用于支持来源引用
-
----
-
-### Step 3：生成 Embeddings
-
-对应文件：
-
-```text
-rag_app/embedding_client.py
-```
-
-作用：
-
-* 将 chunk text 转换为 embedding 向量
-* 支持基于语义相似度的检索
-
-Embedding 的价值在于，用户问题和知识库内容即使使用了不同表达，也可以通过语义相似度匹配。
-
-例如：
-
-```text
-用户问题：
-Can we host the product ourselves?
-
-知识库表达：
-private deployment
-```
-
-虽然关键词不同，但语义上都与私有化部署相关。
-
----
-
-### Step 4：构建向量库
-
-对应文件：
-
-```text
-rag_app/build_vector_store.py
-```
-
-输出位置：
+The generated vector store is saved under:
 
 ```text
 vector_store/
 ```
 
-作用：
+中文说明：
 
-* 读取文档 chunks
-* 生成 embeddings
-* 将向量和来源信息存入 Chroma
+如果本地没有向量库，先运行上面的命令。
+它会读取 `knowledge_base/` 下的 Markdown 文档，并构建 Chroma 本地向量数据库。
 
-`vector_store/` 不是普通文档文件夹，而是 Chroma 本地向量数据库的存储位置。
-
----
-
-### Step 5：检索上下文
-
-对应文件：
-
-```text
-rag_app/retrieve_context_chroma.py
-```
-
-作用：
-
-* 将用户问题转换成 embedding
-* 在 Chroma 中检索最相关的 chunks
-* 返回 Top-K retrieved context 和对应 sources
+`vector_store/` 可以本地重建，所以不会提交到 GitHub。
 
 ---
 
-### Step 6：生成回答
+## 9. Run CLI Demo / 运行命令行 Demo
 
-对应文件：
-
-```text
-rag_app/generate_answer_chroma.py
+```cmd
+.\.venv\Scripts\python.exe rag_app\main_chroma.py
 ```
 
-作用：
-
-* 接收用户问题
-* 接收 retrieved context
-* 生成回答
-* 返回来源引用
-
-当前版本使用 Mock LLM 或模板化回答，以保证项目可以在本地稳定复现。
-
-未来可以将该模块替换为真实 LLM API。
-
----
-
-## 10. 版本演进
-
-### RAG v1：本地 TF-IDF 原型
-
-第一版使用更简单的本地 TF-IDF 检索方式。
-
-它用于验证基础 RAG 思路：
+Example question:
 
 ```text
-documents
-↓
-chunks
-↓
-keyword-based retrieval
-↓
-template-based answer
+Can InsightFlow AI support private deployment?
 ```
 
-该版本的价值是快速跑通第一个原型，但也存在限制：
-
-* 更依赖关键词匹配
-* 语义匹配能力较弱
-* 如果用户表达和文档表达不同，可能漏掉相关内容
-
----
-
-### RAG v2：Embedding + Chroma 语义检索
-
-当前主版本使用：
+Exit:
 
 ```text
-sentence-transformers
-+
-Chroma vector database
+exit
 ```
 
-与 v1 相比，RAG v2 支持语义检索。
-
-这意味着系统可以更好地处理用户表达和文档表达不完全一致的问题。
-
-例如：
-
-```text
-Can we host the product ourselves?
-```
-
-可以匹配到：
-
-```text
-private deployment
-```
-
-这让项目更接近真实售前问答场景。
-
----
-
-## 11. Demo Questions
-
-项目包含三个能体现 B2B SaaS 售前价值的 Demo 问题。
-
-| Demo Question                                   | Expected Source                 | Business Scenario |
-| ----------------------------------------------- | ------------------------------- | ----------------- |
-| Does the product support private deployment?    | `04_deployment_guide.md`        | 企业部署与合规           |
-| Can this product integrate with our CRM system? | `06_integrations_and_api.md`    | 系统集成              |
-| How does the system protect customer data?      | `05_security_and_governance.md` | 数据安全与治理           |
-
-Demo 输出文件：
-
-```text
-outputs/demo_answer_01.md
-outputs/demo_answer_02.md
-outputs/demo_answer_03.md
-```
-
-示例输出文件：
+Generated output:
 
 ```text
 outputs/sample_answer_chroma.md
 ```
 
----
+中文说明：
 
-## 12. 示例输出格式
-
-典型生成结果包含：
-
-```text
-Question:
-Does the product support private deployment?
-
-Retrieved Source:
-04_deployment_guide.md
-
-Answer:
-The product supports private deployment for enterprise customers, depending on deployment requirements and implementation scope.
-
-Sources:
-04_deployment_guide.md
-```
-
-关键点是，系统不仅返回回答，也返回来源。
-
-这可以支持 source grounding，并降低无依据回答的风险。
+命令行版本适合快速测试 RAG 检索和回答生成流程。
+回答会保存到 `outputs/sample_answer_chroma.md`。
 
 ---
 
-## 13. Evaluation
+## 10. Run Streamlit Demo / 运行 Streamlit 页面
 
-项目包含一个评估问题集：
-
-```text
-eval/sample_eval_questions.csv
+```cmd
+.\.venv\Scripts\streamlit.exe run app_streamlit.py --server.fileWatcherType none
 ```
 
-评估问题覆盖：
-
-* 产品总览
-* FAQ
-* 价格
-* 部署
-* 安全
-* API 集成
-* 客户案例
-* 异议处理
-* 售前邮件模板
-
-评估关注以下维度：
-
-| 指标                   | 含义                               |
-| -------------------- | -------------------------------- |
-| Retrieval Hit        | 检索到的 source 是否匹配 expected source |
-| Citation Correctness | 回答中引用的来源是否正确                     |
-| Answer Relevance     | 回答是否真正回应用户问题                     |
-| Faithfulness         | 回答是否忠于检索到的 context               |
-| Failure Case         | 系统是否失败，以及失败原因是什么                 |
-
-评估报告：
+Then open:
 
 ```text
+http://localhost:8501
+```
+
+The Streamlit page supports:
+
+* Customer question input
+* Structured AI answer display
+* Intent display
+* LLM mode display
+* Confidence display
+* Source table
+* Retrieved chunks expander
+* Human review reminder
+* Thumbs up / thumbs down feedback
+
+中文说明：
+
+Streamlit 页面可以作为作品集展示入口。
+它支持输入客户问题、查看结构化回答、查看来源表格、展开 retrieved chunks，并提交用户反馈。
+
+---
+
+## 11. Recommended Test Questions / 推荐测试问题
+
+### 11.1 Deployment / 部署问题
+
+```text
+Can InsightFlow AI support private deployment?
+```
+
+Expected behavior:
+
+* Retrieves product, FAQ, security, or deployment-related chunks.
+* Shows confidence and sources.
+* Suggests confirming architecture, deployment preference, and security requirements.
+
+中文预期：
+
+* 检索产品、FAQ、安全治理或部署相关文档。
+* 展示置信度和来源。
+* 建议进一步确认客户架构、部署偏好和安全要求。
+
+---
+
+### 11.2 Hallucination Guardrail / 幻觉控制测试
+
+```text
+Can InsightFlow AI guarantee stock trading profits?
+```
+
+Expected behavior:
+
+* The system should refuse to answer.
+* LLM mode should be:
+
+```text
+rule_based_refusal
+```
+
+* The answer should explain that the knowledge base does not support this claim.
+
+中文预期：
+
+* 系统应该拒答。
+* LLM mode 应显示 `rule_based_refusal`。
+* 回答应说明知识库没有依据支持“保证股票收益”这种承诺。
+
+---
+
+### 11.3 Security / 安全问题
+
+```text
+How does the assistant reduce hallucinations?
+```
+
+Expected behavior:
+
+* Retrieves security and governance content.
+* Mentions retrieved context, source references, human review, and evaluation.
+
+中文预期：
+
+* 检索安全治理文档。
+* 回答应提到 retrieved context、source references、human review 和 evaluation。
+
+---
+
+### 11.4 Integration / 集成问题
+
+```text
+Can InsightFlow AI connect to MySQL and Power BI?
+```
+
+Expected behavior:
+
+* Retrieves integration and deployment documents.
+* Mentions data sources, BI workflows, refresh, and integration requirements.
+
+中文预期：
+
+* 检索集成和部署文档。
+* 回答应提到数据源、BI 工作流、刷新和系统集成要求。
+
+---
+
+## 12. Structured Output / 结构化输出
+
+The generated answer includes:
+
+```text
+answer
+sources
+confidence
+missing_info
+suggested_follow_up
+```
+
+中文说明：
+
+系统输出不只是普通自然语言回答，而是包含：
+
+```text
+回答正文
+来源引用
+置信度
+缺失信息
+建议追问
+```
+
+This makes the answer more useful for pre-sales and solution consultant scenarios.
+
+这让回答更适合售前和解决方案顾问场景。
+
+---
+
+## 13. Hallucination Guardrails / 幻觉控制
+
+The system includes lightweight guardrails before LLM generation.
+
+It refuses to answer when:
+
+* The question is clearly outside the product pre-sales scope.
+* Retrieved evidence is too weak.
+* The knowledge base does not support the claim.
+
+中文说明：
+
+系统在调用 LLM 生成前加入了轻量拒答机制。
+
+当出现以下情况时，系统会拒答：
+
+* 问题明显超出产品售前知识库范围
+* 检索证据太弱
+* 知识库没有依据支持该承诺
+
+Example:
+
+```text
+Can InsightFlow AI guarantee stock trading profits?
+```
+
+The system refuses instead of inventing unsupported financial claims.
+
+对于这种问题，系统会拒答，而不是编造没有依据的金融收益承诺。
+
+---
+
+## 14. RAG Evaluation / RAG 评估
+
+Run evaluation:
+
+```cmd
+.\.venv\Scripts\python.exe eval\run_eval.py
+```
+
+Evaluation dataset:
+
+```text
+eval/eval_dataset.csv
+```
+
+Generated files:
+
+```text
+eval/eval_results.csv
 docs/evaluation_report.md
 ```
 
-本项目不仅关注回答是否流畅，也关注回答是否基于正确的知识来源。
-
----
-
-## 14. 本地运行方式
-
-### 1. 克隆项目
-
-```bash
-git clone <your-repo-url>
-cd RAG-based-AI-Presales-Knowledge-Assistant
-```
-
----
-
-### 2. 创建虚拟环境
-
-```bash
-python -m venv .venv
-```
-
----
-
-### 3. 激活虚拟环境
-
-Windows PowerShell：
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Windows cmd：
-
-```cmd
-.venv\Scripts\activate
-```
-
----
-
-### 4. 安装依赖
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-### 5. 构建向量库
-
-```bash
-python rag_app/build_vector_store.py
-```
-
-如果需要以模块方式运行：
-
-```bash
-python -m rag_app.build_vector_store
-```
-
-这一步会读取 Markdown 知识库，生成 embeddings，并将其保存到本地 Chroma 向量数据库 `vector_store/` 中。
-
----
-
-### 6. 运行 Chroma 版本 RAG Pipeline
-
-```bash
-python rag_app/main_chroma.py
-```
-
-如果需要以模块方式运行：
-
-```bash
-python -m rag_app.main_chroma
-```
-
-这一步会从 vector store 中检索相关 chunks，并生成带来源引用的回答。
-
----
-
-## 15. 为什么要先构建向量库？
-
-RAG 系统分为两个阶段：
+Current evaluation metrics:
 
 ```text
-Stage 1：构建索引
-Markdown documents → chunks → embeddings → vector_store/
-
-Stage 2：用户问答
-user question → retrieve from vector_store/ → answer + sources
+retrieval_hit_rate
+source_accuracy
+answer_keyword_coverage
+low_confidence_refusal_count
 ```
 
-`build_vector_store.py` 负责准备可检索的向量索引。
+中文说明：
 
-`main_chroma.py` 负责使用已经存在的向量库进行检索和回答生成。
+本项目包含轻量 RAG Evaluation 流程，用来评估：
 
-如果还没有构建向量库，系统可能无法检索到相关 chunks。
+```text
+检索命中率
+来源准确性
+回答关键词覆盖率
+低置信度拒答数量
+```
+
+这说明项目不只是“能回答”，还可以量化检查 RAG 质量。
 
 ---
 
-## 16. 为什么使用 Mock LLM？
+## 15. Observability and Tracing / 可观测性与 Tracing
 
-当前版本使用 Mock LLM 或模板化回答，以保证本地可复现。
-
-这样设计有几个好处：
-
-1. 项目不依赖 API key。
-2. 避免不必要的 API 调用成本。
-3. 面试时更容易复现。
-4. 可以先聚焦核心 RAG 流程。
-
-当前版本仍然展示了完整 RAG pipeline：
+The project includes a custom lightweight tracing module:
 
 ```text
-documents
-↓
-chunks
-↓
-embeddings
-↓
+rag_app/trace_logger.py
+```
+
+Query traces are written to:
+
+```text
+logs/query_logs.jsonl
+```
+
+User feedback is written to:
+
+```text
+logs/user_feedback.csv
+```
+
+Each query log includes:
+
+```text
+timestamp
+user_query
+retrieved_sources
+top_k_chunks
+similarity_scores
+prompt_version
+llm_mode
+answer
+confidence
+latency_ms
+error_message
+```
+
+中文说明：
+
+项目加入了轻量 tracing，不只是输出最终答案，还会记录每次问答的运行链路：
+
+```text
+用户问题
+检索来源
+Top-K chunks
+相似度分数
+prompt 版本
+LLM 模式
+回答预览
+置信度
+耗时
+错误信息或拒答原因
+```
+
+这有助于排查问题到底出在检索、prompt、LLM 生成，还是知识库本身。
+
+---
+
+## 16. User Feedback Loop / 用户反馈闭环
+
+The Streamlit demo supports:
+
+```text
+Helpful
+Not helpful
+```
+
+Feedback records are saved to:
+
+```text
+logs/user_feedback.csv
+```
+
+中文说明：
+
+Streamlit 页面支持用户反馈。
+后续这些反馈可以用于优化：
+
+* evaluation dataset
+* prompt design
+* retrieval quality
+* refusal thresholds
+* knowledge base coverage
+
+---
+
+## 17. Why Mock/API Mode / 为什么要做 Mock/API 双模式
+
+### English
+
+Mock mode allows local development without API costs.
+API mode allows future connection to real LLM providers.
+
+The rest of the RAG pipeline calls a unified `llm_client.py`, so the system is not tightly coupled to one specific provider.
+
+### 中文
+
+Mock 模式可以在没有 API Key、不消耗成本的情况下测试完整流程。
+API 模式则用于后续接入真实大模型。
+
+RAG 主流程只调用统一的 `llm_client.py`，这样系统不会和某一个模型供应商强绑定。
+
+---
+
+## 18. Why Not LangChain First / 为什么没有一开始用 LangChain
+
+This project intentionally implements the RAG pipeline manually first.
+
+The goal is to understand:
+
+```text
+document loading
+chunking
+embedding
 vector store
-↓
 retrieval
-↓
-answer + sources
+prompt construction
+LLM call
+source grounding
+evaluation
+tracing
+refusal logic
 ```
 
-未来版本可以替换为：
+LangChain can be added later as an optional comparison, but the main project keeps the core logic transparent and easy to explain.
 
-* OpenAI API
-* Qwen API
-* DeepSeek API
+中文说明：
+
+本项目先手写 RAG 主流程，而不是一开始就用 LangChain 重构。
+
+原因是：
+求职作品集最重要的是说明自己理解底层流程，而不是只会调用框架。
+
+后期可以加一个 LangChain 对照版本，但主流程保留手写实现，方便面试讲解。
 
 ---
 
-## 17. Human-in-the-loop 设计
-
-在 B2B 售前场景中，并不是所有 AI 生成的回答都应该直接发送给客户。
-
-以下高风险问题需要人工审核：
-
-* 价格承诺
-* 安全声明
-* 合同条款
-* 部署保证
-* 合规说明
-* 客户定制化承诺
-
-本项目遵循 Human-in-the-loop 思路：
+## 19. Key Documents / 关键文档
 
 ```text
-AI 检索并生成草稿
-↓
-人工审核和确认
-↓
-对客户输出正式回答
-```
-
-该设计可以降低幻觉风险和无依据承诺风险。
-
----
-
-## 18. 风险控制
-
-本项目强调基于来源的回答生成。
-
-主要风险控制机制包括：
-
-1. **来源引用**
-   系统会在生成回答时返回对应 source files。
-
-2. **评估问题集**
-   项目通过测试问题检查 retrieved source 是否匹配 expected source。
-
-3. **Mock LLM 保证可复现**
-   当前版本避免了 API 行为不稳定对早期开发的影响。
-
-4. **Human-in-the-loop 审核**
-   高风险回答在对外发送前应由人工确认。
-
-5. **未来 fallback 逻辑**
-   如果 retrieved context 不足，系统应该说明无法确认，而不是编造答案。
-
----
-
-## 19. 岗位相关性
-
-本项目适合展示给以下岗位：
-
-* AI Solutions Intern
-* AI Pre-sales Intern
-* Technical Consultant Intern
-* LLM Application Intern
-* Overseas Technical Operations Intern
-* AI Application Engineer Intern
-
-它体现了以下能力：
-
-* 理解业务场景
-* 将业务问题转化为 AI 应用流程
-* 构建可运行的 RAG 应用原型
-* 清楚解释 LLM 应用层概念
-* 设计基于来源的回答生成
-* 评估检索和回答质量
-* 将 AI 项目包装为 GitHub 和面试作品
-
----
-
-## 20. 当前限制
-
-当前项目仍然存在以下限制：
-
-1. 回答生成模块尚未接入真实 LLM API。
-2. Evaluation 目前主要依赖人工评估。
-3. 项目目前主要通过命令行运行。
-4. Chunking 仍可升级为 Markdown-aware splitting。
-5. Retrieval 质量可以通过 reranking 进一步优化。
-6. 系统尚未包含 Web Demo 页面。
-7. 系统尚未包含 API endpoint。
-8. 对 retrieved context 不足的 fallback 逻辑仍可改进。
-
----
-
-## 21. 下一步计划
-
-后续计划包括：
-
-1. 增加 Streamlit Demo 页面。
-2. 增加 FastAPI 接口，例如 `POST /ask`。
-3. 接入真实 LLM API。
-4. 增加自动化评估脚本。
-5. 使用 section title 和 chunk overlap 优化 chunking。
-6. 增加 retrieved context 不足时的 fallback 逻辑。
-7. 增加 reranking，提高检索精度。
-8. 增加高风险回答的人工审核状态。
-9. 对比 Chroma 和 FAISS 在更大规模检索下的表现。
-10. 优化 README 截图和 Demo 证据展示。
-
----
-
-## 22. 面试介绍
-
-如果需要介绍这个项目，我会这样说：
-
-> 这个项目是一个面向 B2B SaaS 售前场景的 RAG 知识库助手。
->
-> 它解决的问题是：售前团队经常需要基于分散的产品文档，回答客户关于产品功能、价格、部署、安全、API 集成和客户案例的问题。
->
-> 系统会读取 Markdown 知识库，将文档切分成 chunks，再通过 embedding 转成向量并存入 Chroma。用户提问时，系统会检索相关 chunks，并基于 retrieved context 生成带来源引用的回答。
->
-> 这个项目的核心价值不只是生成文本，而是提升售前回答的准确性、一致性和可追溯性。
-
----
-
-## 23. 核心总结
-
-本项目展示了如何通过 RAG pipeline，将静态 B2B SaaS 产品文档转化为一个可检索、可引用、可解释的 AI 售前知识库助手。
-
-它不仅体现了技术实现能力，也体现了业务理解、风险控制、评估思维和 AI 解决方案包装能力。
-
-# RAG-based AI Pre-sales Knowledge Assistant
-
-## 1. Overview
-
-This project is a **RAG-based AI pre-sales knowledge assistant** designed for a simulated **B2B SaaS** scenario.
-
-It helps sales engineers, pre-sales consultants, solution consultants, and customer success teams answer customer-facing questions based on structured product knowledge documents.
-
-The system retrieves relevant context from Markdown-based knowledge files and generates grounded answers with source references.
-
-This project is not a general-purpose chatbot. It is designed as an AI application prototype for **enterprise knowledge retrieval, pre-sales Q&A, and source-grounded answer generation**.
-
----
-
-## 2. Business Problem
-
-In B2B SaaS pre-sales, customers often ask questions about:
-
-* Product capabilities
-* Pricing and packaging
-* Private deployment
-* Data security
-* API integration
-* Customer case studies
-* Objection handling
-* Follow-up email drafting
-
-If sales or pre-sales teams answer these questions manually, they may face several problems:
-
-1. **Slow response time**
-   Team members need to search through multiple product documents before answering.
-
-2. **Inconsistent answers**
-   Different team members may give different explanations for the same product capability.
-
-3. **Lack of source grounding**
-   Sensitive topics such as pricing, deployment, security, and customer commitments require reliable references.
-
-4. **High risk of hallucination when using a general LLM directly**
-   A general LLM may generate fluent but unsupported answers if it does not have access to the company’s internal knowledge base.
-
-This project uses a RAG pipeline to improve answer consistency, traceability, and reliability.
-
----
-
-## 3. Solution Summary
-
-The project builds a local RAG pipeline that follows this workflow:
-
-```text
-Markdown Knowledge Base
-↓
-Document Loading
-↓
-Chunking
-↓
-Embedding
-↓
-Chroma Vector Store
-↓
-Top-K Semantic Retrieval
-↓
-Answer Generation
-↓
-Answer + Sources
-```
-
-When a user asks a question, the system does not directly generate an answer from the model’s internal knowledge.
-
-Instead, it first retrieves relevant chunks from the knowledge base, then generates an answer grounded in those retrieved contexts.
-
----
-
-## 4. Key Features
-
-* Structured B2B SaaS knowledge base
-* Markdown document loading
-* Document chunking
-* Sentence-transformers based embeddings
-* Chroma local vector database
-* Top-K semantic retrieval
-* Source-grounded answer generation
-* Mock LLM / template-based generation for local reproducibility
-* Evaluation question set for retrieval and answer quality checking
-* Human-in-the-loop design for high-risk pre-sales answers
-
----
-
-## 5. Tech Stack
-
-| Area                  | Tools / Methods                      |
-| --------------------- | ------------------------------------ |
-| Programming Language  | Python                               |
-| Knowledge Base        | Markdown                             |
-| Embedding Model       | sentence-transformers                |
-| Vector Database       | Chroma                               |
-| Retrieval Method      | Top-K semantic retrieval             |
-| Answer Generation     | Mock LLM / template-based generation |
-| Evaluation            | CSV-based manual evaluation          |
-| Version Control       | Git / GitHub                         |
-| Future Demo Interface | Streamlit                            |
-| Future API Layer      | FastAPI                              |
-| Future LLM API        | OpenAI / Qwen / DeepSeek             |
-
----
-
-## 6. Architecture
-
-```text
-Markdown Knowledge Base
-↓
-Load Documents
-↓
-Chunk Documents
-↓
-Document Chunks
-↓
-Embedding Model
-↓
-Chroma Vector Store
-↓
-User Question
-↓
-Question Embedding
-↓
-Top-K Retrieval
-↓
-Retrieved Context
-↓
-Answer Generation
-↓
-Answer + Sources
-```
-
-Detailed architecture explanation:
-
-```text
+docs/demo_guide.md
+docs/demo_guide_zh.md
+docs/evaluation_report.md
+docs/observability_notes.md
+docs/observability_notes_zh.md
+docs/project_explanation_zh.md
+docs/interview_pitch.md
 docs/architecture.md
 ```
 
----
+中文说明：
 
-## 7. Project Structure
+这些文档分别用于：
 
-```text
-RAG-based-AI-Presales-Knowledge-Assistant/
-├── knowledge_base/
-│   ├── 01_product_overview.md
-│   ├── 02_faq.md
-│   ├── 03_pricing_and_packaging.md
-│   ├── 04_deployment_guide.md
-│   ├── 05_security_and_governance.md
-│   ├── 06_integrations_and_api.md
-│   ├── 07_customer_case_studies.md
-│   ├── 08_objection_handling.md
-│   └── 09_presales_email_templates.md
-│
-├── rag_app/
-│   ├── load_documents.py
-│   ├── chunk_documents.py
-│   ├── embedding_client.py
-│   ├── build_vector_store.py
-│   ├── retrieve_context_chroma.py
-│   ├── generate_answer_chroma.py
-│   ├── generate_answer.py
-│   ├── main_chroma.py
-│   └── main.py
-│
-├── outputs/
-│   ├── document_chunks.json
-│   ├── sample_answer.md
-│   ├── sample_answer_chroma.md
-│   ├── demo_answer_01.md
-│   ├── demo_answer_02.md
-│   └── demo_answer_03.md
-│
-├── eval/
-│   └── sample_eval_questions.csv
-│
-├── docs/
-│   ├── architecture.md
-│   ├── embedding_notes.md
-│   ├── vector_store_notes.md
-│   ├── retrieval_test_notes.md
-│   ├── answer_generation_notes.md
-│   ├── engineering_notes.md
-│   ├── evaluation_report.md
-│   ├── interview_pitch.md
-│   ├── resume_bullets.md
-│   └── images/
-│
-├── vector_store/
-├── requirements.txt
-├── .gitignore
-└── README.md
-```
+* Demo 运行说明
+* 中文 Demo 说明
+* Evaluation 报告
+* Observability 说明
+* 中文 Observability 说明
+* 中文项目解释
+* 面试 Pitch
+* 架构说明
 
 ---
 
-## 8. Knowledge Base Design
+## 20. Interview Explanation / 面试表达
 
-The knowledge base simulates product and pre-sales materials for a fictional B2B SaaS product named **InsightFlow AI**.
+### English Version
 
-It contains the following documents:
+> I upgraded a RAG-based pre-sales knowledge assistant into an AI Pre-sales Copilot. It uses sentence-transformers and Chroma for semantic retrieval, includes a provider-switchable LLM client with mock/API modes, generates structured source-grounded answers, adds hallucination guardrails, evaluates retrieval and answer quality, logs query traces and feedback, and provides a Streamlit demo for interactive testing.
 
-| File                             | Purpose                                                        |
-| -------------------------------- | -------------------------------------------------------------- |
-| `01_product_overview.md`         | Product overview, target users, and core modules               |
-| `02_faq.md`                      | Frequently asked customer questions                            |
-| `03_pricing_and_packaging.md`    | Pricing plans and packaging information                        |
-| `04_deployment_guide.md`         | Cloud deployment, private deployment, and implementation notes |
-| `05_security_and_governance.md`  | Data security, access control, audit logs, and governance      |
-| `06_integrations_and_api.md`     | API integration, CRM integration, and BI tool connection       |
-| `07_customer_case_studies.md`    | Customer success stories and business outcomes                 |
-| `08_objection_handling.md`       | Common sales objections and response strategies                |
-| `09_presales_email_templates.md` | Pre-sales follow-up email templates                            |
+### 中文版本
 
-This knowledge base is not random text. It is designed to simulate real B2B SaaS pre-sales materials.
+> 我把原来的 RAG 售前知识库助手升级成了 AI Pre-sales Copilot。它使用 sentence-transformers 和 Chroma 做语义检索，封装了 Mock/API 双模式 LLM Client，可以生成结构化、带来源引用的回答，并加入了幻觉控制、RAG Evaluation、query tracing、用户反馈记录和 Streamlit 展示页面。
+
+### Short English Version
+
+> This project demonstrates practical LLM application engineering: RAG, LLM API abstraction, evaluation, hallucination control, observability, feedback logging, and demo delivery.
+
+### 中文简洁版
+
+> 这个项目展示的是实用 LLM 应用工程能力，包括 RAG、LLM API 抽象、评估、幻觉控制、可观测性、反馈记录和 Demo 交付。
 
 ---
 
-## 9. RAG Pipeline
+## 21. Portfolio Value / 作品集价值
 
-### Step 1: Load Documents
-
-File:
-
-```text
-rag_app/load_documents.py
-```
-
-Purpose:
-
-* Reads Markdown files from `knowledge_base/`
-* Preserves source file information
-* Converts raw documents into program-readable data
-
----
-
-### Step 2: Chunk Documents
-
-File:
-
-```text
-rag_app/chunk_documents.py
-```
-
-Purpose:
-
-* Splits long Markdown documents into smaller chunks
-* Saves chunk information into `outputs/document_chunks.json`
-
-Each chunk contains:
-
-```text
-chunk_id
-source_file
-chunk_index
-text
-```
-
-The `text` field is used for embedding and retrieval.
-
-The `source_file` field supports source citation.
-
----
-
-### Step 3: Generate Embeddings
-
-File:
-
-```text
-rag_app/embedding_client.py
-```
-
-Purpose:
-
-* Converts chunk text into embedding vectors
-* Enables semantic similarity search
-
-Embedding is useful because users may ask questions using different wording from the knowledge base.
-
-Example:
-
-```text
-User question:
-Can we host the product ourselves?
-
-Knowledge base expression:
-private deployment
-```
-
-Even though the wording is different, embedding-based retrieval can match them by semantic similarity.
-
----
-
-### Step 4: Build Vector Store
-
-File:
-
-```text
-rag_app/build_vector_store.py
-```
-
-Output:
-
-```text
-vector_store/
-```
-
-Purpose:
-
-* Reads document chunks
-* Generates embeddings
-* Stores vectors and source information in Chroma
-
-`vector_store/` is not a normal document folder. It is the local Chroma vector database storage location.
-
----
-
-### Step 5: Retrieve Context
-
-File:
-
-```text
-rag_app/retrieve_context_chroma.py
-```
-
-Purpose:
-
-* Converts the user question into an embedding
-* Searches Chroma for the most relevant chunks
-* Returns Top-K retrieved contexts and their sources
-
----
-
-### Step 6: Generate Answer
-
-File:
-
-```text
-rag_app/generate_answer_chroma.py
-```
-
-Purpose:
-
-* Receives the user question
-* Receives retrieved context
-* Generates an answer
-* Returns source references
-
-The current version uses Mock LLM or template-based generation to keep the project locally reproducible.
-
-Future versions can replace this module with a real LLM API.
-
----
-
-## 10. Version Evolution
-
-### RAG v1: Local TF-IDF Prototype
-
-The first version used a simpler local retrieval approach based on TF-IDF.
-
-It helped validate the basic idea:
-
-```text
-documents
-↓
-chunks
-↓
-keyword-based retrieval
-↓
-template-based answer
-```
-
-This version was useful for building the first working prototype, but it had limitations:
-
-* It relied more on keyword matching
-* It was weaker at semantic matching
-* It could miss relevant documents if the user used different wording
-
----
-
-### RAG v2: Embedding + Chroma Semantic Retrieval
-
-The current main version uses:
-
-```text
-sentence-transformers
-+
-Chroma vector database
-```
-
-Compared with v1, RAG v2 supports semantic retrieval.
-
-This means the system can better handle questions where the user’s wording differs from the document’s wording.
-
-Example:
-
-```text
-Can we host the product ourselves?
-```
-
-can match:
-
-```text
-private deployment
-```
-
-This makes the project more suitable for realistic pre-sales Q&A scenarios.
-
----
-
-## 11. Demo Questions
-
-The project includes demo questions that reflect common B2B SaaS pre-sales scenarios.
-
-| Demo Question                                   | Expected Source                 | Business Scenario                    |
-| ----------------------------------------------- | ------------------------------- | ------------------------------------ |
-| Does the product support private deployment?    | `04_deployment_guide.md`        | Enterprise deployment and compliance |
-| Can this product integrate with our CRM system? | `06_integrations_and_api.md`    | System integration                   |
-| How does the system protect customer data?      | `05_security_and_governance.md` | Data security and governance         |
-
-Demo outputs:
-
-```text
-outputs/demo_answer_01.md
-outputs/demo_answer_02.md
-outputs/demo_answer_03.md
-```
-
-Sample output:
-
-```text
-outputs/sample_answer_chroma.md
-```
-
----
-
-## 12. Example Output Format
-
-A typical generated answer includes:
-
-```text
-Question:
-Does the product support private deployment?
-
-Retrieved Source:
-04_deployment_guide.md
-
-Answer:
-The product supports private deployment for enterprise customers, depending on deployment requirements and implementation scope.
-
-Sources:
-04_deployment_guide.md
-```
-
-The key idea is that the system returns both an answer and its source.
-
-This supports source grounding and reduces the risk of unsupported claims.
-
----
-
-## 13. Evaluation
-
-The project includes an evaluation question set:
-
-```text
-eval/sample_eval_questions.csv
-```
-
-The evaluation questions cover:
-
-* Product overview
-* FAQ
-* Pricing
-* Deployment
-* Security
-* API integration
-* Customer case studies
-* Objection handling
-* Pre-sales email templates
-
-Evaluation focuses on the following dimensions:
-
-| Metric               | Meaning                                                  |
-| -------------------- | -------------------------------------------------------- |
-| Retrieval Hit        | Whether the retrieved source matches the expected source |
-| Citation Correctness | Whether the answer cites the correct source              |
-| Answer Relevance     | Whether the answer addresses the question                |
-| Faithfulness         | Whether the answer is grounded in the retrieved context  |
-| Failure Case         | Whether the system fails and why                         |
-
-Evaluation report:
-
-```text
-docs/evaluation_report.md
-```
-
-This project does not only check whether the answer looks fluent. It also checks whether the answer is based on the correct knowledge source.
-
----
-
-## 14. How to Run Locally
-
-### 1. Clone the Repository
-
-```bash
-git clone <your-repo-url>
-cd RAG-based-AI-Presales-Knowledge-Assistant
-```
-
----
-
-### 2. Create Virtual Environment
-
-```bash
-python -m venv .venv
-```
-
----
-
-### 3. Activate Virtual Environment
-
-Windows PowerShell:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Windows cmd:
-
-```cmd
-.venv\Scripts\activate
-```
-
----
-
-### 4. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
----
-
-### 5. Build the Vector Store
-
-```bash
-python rag_app/build_vector_store.py
-```
-
-If module execution is needed:
-
-```bash
-python -m rag_app.build_vector_store
-```
-
-This step reads the Markdown knowledge base, generates embeddings, and stores them in a local Chroma vector database under `vector_store/`.
-
----
-
-### 6. Run the Chroma-based RAG Pipeline
-
-```bash
-python rag_app/main_chroma.py
-```
-
-If module execution is needed:
-
-```bash
-python -m rag_app.main_chroma
-```
-
-This step retrieves relevant chunks from the vector store and generates an answer with source references.
-
----
-
-## 15. Why Build the Vector Store First?
-
-The RAG system has two stages:
-
-```text
-Stage 1: Build Index
-Markdown documents → chunks → embeddings → vector_store/
-
-Stage 2: Ask Questions
-user question → retrieve from vector_store/ → answer + sources
-```
-
-`build_vector_store.py` prepares the searchable vector index.
-
-`main_chroma.py` uses the existing vector store to perform retrieval and answer generation.
-
-If the vector store has not been built, the system may not be able to retrieve relevant chunks.
-
----
-
-## 16. Why Mock LLM?
-
-The current version uses Mock LLM or template-based answer generation for local reproducibility.
-
-This design has several advantages:
-
-1. The project can run without an API key.
-2. It avoids unnecessary API costs.
-3. It makes the pipeline easier to reproduce during interviews.
-4. It allows the project to focus on the core RAG workflow first.
-
-The full RAG pipeline is still demonstrated:
-
-```text
-documents
-↓
-chunks
-↓
-embeddings
-↓
-vector store
-↓
-retrieval
-↓
-answer + sources
-```
-
-Future versions can replace Mock LLM with:
-
-* OpenAI API
-* Qwen API
-* DeepSeek API
-
----
-
-## 17. Human-in-the-loop Design
-
-In B2B pre-sales scenarios, not all AI-generated answers should be sent directly to customers.
-
-High-risk topics should involve human review, including:
-
-* Pricing commitments
-* Security claims
-* Contract terms
-* Deployment guarantees
-* Compliance statements
-* Customer-specific promises
-
-The project follows a human-in-the-loop mindset:
-
-```text
-AI retrieves and drafts
-↓
-Human reviews and confirms
-↓
-Customer-facing answer is delivered
-```
-
-This design reduces the risk of hallucination and unsupported claims.
-
----
-
-## 18. Risk Control
-
-This project focuses on source-grounded answer generation.
-
-Key risk control mechanisms include:
-
-1. **Source citation**
-   The system returns source files together with generated answers.
-
-2. **Evaluation question set**
-   The project tests whether retrieval results match expected sources.
-
-3. **Mock LLM for reproducibility**
-   The current version avoids unpredictable API behavior during early development.
-
-4. **Human-in-the-loop review**
-   High-risk answers should be reviewed before customer delivery.
-
-5. **Future fallback logic**
-   If the retrieved context is insufficient, the system should say that it cannot confirm the answer instead of fabricating information.
-
----
-
-## 19. Role Relevance
-
-This project is designed to match the skill requirements of roles such as:
+This project demonstrates skills relevant to:
 
 * AI Solutions Intern
+* LLM Application Engineer Intern
 * AI Pre-sales Intern
 * Technical Consultant Intern
-* LLM Application Intern
-* Overseas Technical Operations Intern
-* AI Application Engineer Intern
+* AI Product / Technical Operations Intern
 
-It demonstrates the following capabilities:
+中文说明：
 
-* Understanding business scenarios
-* Translating business needs into AI workflows
-* Building a working RAG application prototype
-* Explaining LLM application concepts clearly
-* Designing source-grounded answer generation
-* Evaluating retrieval and answer quality
-* Packaging an AI project for GitHub and interviews
+这个项目适合用于申请：
 
----
+* AI Solutions Intern
+* LLM Application Engineer Intern
+* AI Pre-sales Intern
+* Technical Consultant Intern
+* AI 产品 / 技术运营实习
 
-## 20. Limitations
+It shows that the project is not just a simple chatbot, but a structured AI application with retrieval, grounding, evaluation, guardrails, tracing, feedback, and demo delivery.
 
-Current limitations include:
-
-1. The answer generation module does not yet use a real LLM API.
-2. Evaluation is still mostly manual.
-3. The project currently runs from the command line.
-4. Chunking can be improved with Markdown-aware splitting.
-5. Retrieval quality can be further improved with reranking.
-6. The system does not yet include a web interface.
-7. The system does not yet include an API endpoint.
-8. Fallback logic for insufficient context can be improved.
+它说明这个项目不是简单聊天机器人，而是一个包含检索、来源引用、评估、拒答机制、tracing、反馈闭环和展示页面的结构化 AI 应用项目。
 
 ---
 
-## 21. Next Steps
+## 22. Current Status / 当前状态
 
-Planned improvements:
+Implemented:
 
-1. Add a Streamlit demo interface.
-2. Add a FastAPI endpoint such as `POST /ask`.
-3. Connect to a real LLM API.
-4. Add automatic evaluation scripts.
-5. Improve chunking with section titles and chunk overlap.
-6. Add fallback logic for insufficient retrieved context.
-7. Add reranking to improve retrieval precision.
-8. Add human review status for high-risk answers.
-9. Compare Chroma with FAISS for larger-scale retrieval.
-10. Improve README screenshots and demo evidence.
+```text
+Manual RAG pipeline
+Chroma semantic retrieval
+Mock/API LLM client
+Structured grounded answers
+Hallucination guardrails
+RAG evaluation pipeline
+Lightweight tracing
+User feedback logging
+Streamlit demo
+Bilingual documentation
+```
 
----
+中文说明：
 
-## 22. Interview Summary
+目前已完成：
 
-If asked to introduce this project, I would say:
+```text
+手写 RAG 流程
+Chroma 语义检索
+Mock/API 双模式 LLM Client
+结构化来源回答
+幻觉控制与拒答
+RAG Evaluation
+轻量 tracing
+用户反馈记录
+Streamlit Demo
+中英双语文档
+```
 
-> This project is a RAG-based AI pre-sales knowledge assistant for a B2B SaaS scenario.
->
-> It solves the problem that pre-sales teams often need to answer customer questions about product features, pricing, deployment, security, API integration, and customer cases based on scattered documents.
->
-> The system loads Markdown knowledge documents, splits them into chunks, converts the chunks into embeddings, stores them in Chroma, retrieves relevant chunks based on a user question, and generates an answer with source references.
->
-> The key value is not just generating text, but improving answer accuracy, consistency, and traceability in customer-facing pre-sales workflows.
+Potential next steps:
 
----
+```text
+FastAPI service
+Dockerfile
+Lightweight tool-calling workflow
+Optional LangChain comparison
+Optional LangSmith tracing
+```
 
-## 23. Key Takeaway
+后续可升级方向：
 
-This project shows how a RAG pipeline can turn static B2B SaaS product documents into a searchable, source-grounded AI pre-sales assistant.
-
-It demonstrates not only technical implementation, but also business understanding, risk control, evaluation thinking, and AI solution packaging.
+```text
+FastAPI 服务化
+Dockerfile 容器化
+轻量 tool-calling workflow
+LangChain 对照版本
+LangSmith tracing 对照
+```
