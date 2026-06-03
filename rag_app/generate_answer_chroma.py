@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from llm_client import call_llm
 from retrieve_context_chroma import retrieve_relevant_chunks_chroma
 
 
@@ -11,9 +12,6 @@ SAMPLE_ANSWER_FILE = OUTPUT_DIR / "sample_answer_chroma.md"
 def infer_question_intent(question: str) -> str:
     """
     Infer a simple business intent from the user question.
-
-    This is still a rule-based classifier.
-    In the future LLM version, this can be replaced by an LLM intent classifier.
     """
 
     q = question.lower()
@@ -36,56 +34,7 @@ def infer_question_intent(question: str) -> str:
     return "general_presales"
 
 
-def build_direct_answer(intent: str) -> str:
-    """
-    Build a concise direct answer based on detected intent.
-
-    The detailed evidence still comes from retrieved Chroma chunks.
-    """
-
-    if intent == "integration":
-        return (
-            "Based on the retrieved knowledge base, InsightFlow AI can support integration "
-            "with business data sources and BI workflows. For a client conversation, the key "
-            "is to confirm the client's database type, reporting tool, refresh frequency, "
-            "access permissions, and deployment environment."
-        )
-
-    if intent == "security_governance":
-        return (
-            "Based on the retrieved knowledge base, InsightFlow AI should be positioned as a "
-            "human-reviewable AI workflow. Security, governance, source grounding, and approval "
-            "control should be clearly explained before any client-facing commitment."
-        )
-
-    if intent == "pricing":
-        return (
-            "Based on the retrieved knowledge base, pricing should be discussed according to "
-            "deployment scope, integration complexity, usage scale, support level, and enterprise "
-            "customization requirements."
-        )
-
-    if intent == "deployment":
-        return (
-            "Based on the retrieved knowledge base, deployment should be planned around the "
-            "client's infrastructure, security requirements, data access model, and operational "
-            "workflow. The solution may need cloud, private, or hybrid deployment discussion."
-        )
-
-    if intent == "case_study":
-        return (
-            "Based on the retrieved knowledge base, case studies should be used to connect product "
-            "capabilities with measurable business outcomes such as faster analysis, better customer "
-            "response, and more consistent decision-making."
-        )
-
-    return (
-        "Based on the retrieved knowledge base, the response should connect the client's question "
-        "to relevant product capabilities, implementation requirements, and human review controls."
-    )
-
-
-def build_supporting_evidence(retrieved_chunks: list[dict], max_chars: int = 500) -> str:
+def build_supporting_evidence(retrieved_chunks: list[dict], max_chars: int = 700) -> str:
     """
     Format Chroma retrieved chunks as supporting evidence.
     """
@@ -99,10 +48,10 @@ def build_supporting_evidence(retrieved_chunks: list[dict], max_chars: int = 500
             snippet = snippet[:max_chars].rstrip() + "..."
 
         evidence_blocks.append(
-            f"{item['rank']}. **{item['source_file']}** "
-            f"({item['chunk_id']}, chunk_index={item['chunk_index']}, "
-            f"similarity={item['similarity_score']})\n"
-            f"   - {snippet}"
+            f"{item['rank']}. Source: {item['source_file']} | "
+            f"chunk_id={item['chunk_id']} | chunk_index={item['chunk_index']} | "
+            f"similarity={item['similarity_score']}\n"
+            f"{snippet}"
         )
 
     return "\n\n".join(evidence_blocks)
@@ -124,25 +73,128 @@ def build_sources(retrieved_chunks: list[dict]) -> str:
     return "\n".join(source_lines)
 
 
+def build_sources_list(retrieved_chunks: list[dict]) -> list[dict]:
+    """
+    Build machine-readable source metadata for LLM response.
+    """
+
+    sources = []
+
+    for item in retrieved_chunks:
+        sources.append(
+            {
+                "source_file": item["source_file"],
+                "chunk_id": item["chunk_id"],
+                "chunk_index": item["chunk_index"],
+                "similarity_score": item["similarity_score"],
+            }
+        )
+
+    return sources
+
+
+def infer_retrieval_confidence(retrieved_chunks: list[dict]) -> str:
+    """
+    Infer a simple confidence level based on the top retrieved similarity score.
+
+    This is a lightweight heuristic. Later, evaluation results can help tune thresholds.
+    """
+
+    if not retrieved_chunks:
+        return "low"
+
+    top_score = retrieved_chunks[0]["similarity_score"]
+
+    if top_score >= 0.35:
+        return "high"
+
+    if top_score >= 0.15:
+        return "medium"
+
+    return "low"
+
+
+def format_list_items(items: list[str]) -> str:
+    """
+    Format a list into Markdown bullets.
+    """
+
+    if not items:
+        return "- None"
+
+    return "\n".join(f"- {item}" for item in items)
+
+
+def build_llm_prompt(question: str, intent: str, retrieved_chunks: list[dict]) -> str:
+    """
+    Build a grounded prompt for the LLM.
+
+    The LLM should answer only from retrieved evidence.
+    """
+
+    evidence = build_supporting_evidence(retrieved_chunks)
+
+    return f"""
+You are an AI pre-sales copilot for a B2B SaaS product called InsightFlow AI.
+
+Answer the customer's question using ONLY the retrieved knowledge base evidence below.
+Do not invent product capabilities, pricing, deployment details, or security commitments.
+If the evidence is insufficient, clearly say what information is missing.
+
+Customer question:
+{question}
+
+Detected intent:
+{intent}
+
+Retrieved knowledge base evidence:
+{evidence}
+
+Return your response as JSON with exactly these fields:
+- answer
+- sources
+- confidence
+- missing_info
+- suggested_follow_up
+"""
+
+
 def generate_chroma_answer(question: str, top_k: int = 5) -> str:
     """
-    Generate a structured pre-sales answer using Chroma semantic retrieval.
-
-    Workflow:
-    1. Retrieve semantically relevant chunks from Chroma.
-    2. Infer business intent.
-    3. Generate a structured answer.
-    4. Attach supporting evidence and source citations.
+    Generate a structured pre-sales answer using:
+    1. Chroma semantic retrieval
+    2. Grounded prompt construction
+    3. Mock/API LLM client
+    4. Source citations
     """
 
     retrieved_chunks = retrieve_relevant_chunks_chroma(question=question, top_k=top_k)
     intent = infer_question_intent(question)
 
-    direct_answer = build_direct_answer(intent)
-    supporting_evidence = build_supporting_evidence(retrieved_chunks)
-    sources = build_sources(retrieved_chunks)
+    prompt = build_llm_prompt(
+        question=question,
+        intent=intent,
+        retrieved_chunks=retrieved_chunks,
+    )
 
-    answer = f"""# RAG v2 — Chroma-based AI Pre-sales Assistant Answer
+    system_prompt = (
+        "You are a careful AI pre-sales copilot. "
+        "You must ground your answer in retrieved sources and avoid unsupported claims."
+    )
+
+    llm_response = call_llm(prompt=prompt, system_prompt=system_prompt)
+
+    retrieval_confidence = infer_retrieval_confidence(retrieved_chunks)
+    sources_markdown = build_sources(retrieved_chunks)
+    sources_list = build_sources_list(retrieved_chunks)
+
+    answer_text = llm_response.get("answer", "")
+    llm_confidence = llm_response.get("confidence", retrieval_confidence)
+    missing_info = llm_response.get("missing_info", [])
+    suggested_follow_up = llm_response.get("suggested_follow_up", "")
+    llm_mode = llm_response.get("llm_mode", "unknown")
+
+    answer = f"""# AI Pre-sales Copilot Answer
 
 ## Question
 
@@ -152,23 +204,42 @@ def generate_chroma_answer(question: str, top_k: int = 5) -> str:
 
 {intent}
 
-## Direct Answer
+## LLM Mode
 
-{direct_answer}
+{llm_mode}
+
+## Confidence
+
+- Retrieval confidence: {retrieval_confidence}
+- LLM confidence: {llm_confidence}
+
+## Answer
+
+{answer_text}
+
+## Missing Information
+
+{format_list_items(missing_info)}
+
+## Suggested Follow-up
+
+{suggested_follow_up}
 
 ## Supporting Evidence from Knowledge Base
 
-{supporting_evidence}
+{build_supporting_evidence(retrieved_chunks)}
 
-## Suggested Pre-sales Response
+## Sources
 
-Thank you for your question. Based on the retrieved knowledge base, InsightFlow AI can be positioned as a practical AI solution that connects business knowledge, data sources, and AI-assisted recommendations into a reviewable workflow.
+{sources_markdown}
 
-For the next step, I would suggest confirming the client's current systems, data sources, reporting tools, deployment requirements, and internal approval process. This helps avoid over-promising and ensures that the proposed solution is technically feasible.
+## Machine-readable Sources
+
+{sources_list}
 
 ## Human Review Reminder
 
-This answer is generated from semantically retrieved knowledge base content. A human pre-sales or solution consultant should review the response before sending it to a client.
+This answer is generated from retrieved knowledge base content. A human pre-sales or solution consultant should review the response before sending it to a client.
 
 Please verify:
 - Technical feasibility
@@ -177,10 +248,6 @@ Please verify:
 - Data access permissions
 - Security and compliance commitments
 - Client-specific assumptions
-
-## Sources
-
-{sources}
 """
 
     return answer
@@ -188,7 +255,7 @@ Please verify:
 
 def save_answer(answer: str) -> None:
     """
-    Save the generated Chroma-based answer to outputs/sample_answer_chroma.md.
+    Save the generated answer to outputs/sample_answer_chroma.md.
     """
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -196,7 +263,7 @@ def save_answer(answer: str) -> None:
 
 
 if __name__ == "__main__":
-    sample_question = "Can InsightFlow AI work with our reporting dashboard and database?"
+    sample_question = "Can InsightFlow AI support private deployment?"
 
     result = generate_chroma_answer(sample_question, top_k=5)
     save_answer(result)
