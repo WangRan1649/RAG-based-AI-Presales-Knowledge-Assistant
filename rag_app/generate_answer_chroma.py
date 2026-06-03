@@ -1,12 +1,16 @@
+import time
 from pathlib import Path
 
 from llm_client import call_llm
 from retrieve_context_chroma import retrieve_relevant_chunks_chroma
+from trace_logger import log_query_event
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 SAMPLE_ANSWER_FILE = OUTPUT_DIR / "sample_answer_chroma.md"
+
+PROMPT_VERSION = "v1_grounded_presales_prompt"
 
 
 def infer_question_intent(question: str) -> str:
@@ -91,6 +95,27 @@ def build_sources_list(retrieved_chunks: list[dict]) -> list[dict]:
         )
 
     return sources
+
+
+def build_trace_chunks(retrieved_chunks: list[dict]) -> list[dict]:
+    """
+    Build compact chunk metadata for query tracing.
+    """
+
+    trace_chunks = []
+
+    for item in retrieved_chunks:
+        trace_chunks.append(
+            {
+                "rank": item["rank"],
+                "source_file": item["source_file"],
+                "chunk_id": item["chunk_id"],
+                "chunk_index": item["chunk_index"],
+                "similarity_score": item["similarity_score"],
+            }
+        )
+
+    return trace_chunks
 
 
 def infer_retrieval_confidence(retrieved_chunks: list[dict]) -> str:
@@ -284,6 +309,33 @@ This answer was refused because the retrieved evidence was insufficient or the q
     return answer
 
 
+def write_query_trace(
+    question: str,
+    retrieved_chunks: list[dict],
+    llm_mode: str,
+    answer: str,
+    confidence: str,
+    latency_ms: int,
+    error_message: str = "",
+) -> None:
+    """
+    Write a query trace event for observability and debugging.
+    """
+
+    log_query_event(
+        user_query=question,
+        retrieved_sources=[item["source_file"] for item in retrieved_chunks],
+        top_k_chunks=build_trace_chunks(retrieved_chunks),
+        similarity_scores=[item["similarity_score"] for item in retrieved_chunks],
+        prompt_version=PROMPT_VERSION,
+        llm_mode=llm_mode,
+        answer=answer[:1000],
+        confidence=confidence,
+        latency_ms=latency_ms,
+        error_message=error_message,
+    )
+
+
 def generate_chroma_answer(question: str, top_k: int = 5) -> str:
     """
     Generate a structured pre-sales answer using:
@@ -292,7 +344,10 @@ def generate_chroma_answer(question: str, top_k: int = 5) -> str:
     3. Grounded prompt construction
     4. Mock/API LLM client
     5. Source citations
+    6. Lightweight tracing
     """
+
+    start_time = time.perf_counter()
 
     retrieved_chunks = retrieve_relevant_chunks_chroma(question=question, top_k=top_k)
     intent = infer_question_intent(question)
@@ -306,13 +361,27 @@ def generate_chroma_answer(question: str, top_k: int = 5) -> str:
     )
 
     if should_refuse:
-        return generate_refusal_answer(
+        answer = generate_refusal_answer(
             question=question,
             intent=intent,
             retrieved_chunks=retrieved_chunks,
             retrieval_confidence=retrieval_confidence,
             refusal_reason=refusal_reason,
         )
+
+        latency_ms = int((time.perf_counter() - start_time) * 1000)
+
+        write_query_trace(
+            question=question,
+            retrieved_chunks=retrieved_chunks,
+            llm_mode="rule_based_refusal",
+            answer=answer,
+            confidence="low",
+            latency_ms=latency_ms,
+            error_message=refusal_reason,
+        )
+
+        return answer
 
     prompt = build_llm_prompt(
         question=question,
@@ -392,6 +461,18 @@ Please verify:
 - Client-specific assumptions
 """
 
+    latency_ms = int((time.perf_counter() - start_time) * 1000)
+
+    write_query_trace(
+        question=question,
+        retrieved_chunks=retrieved_chunks,
+        llm_mode=llm_mode,
+        answer=answer,
+        confidence=llm_confidence,
+        latency_ms=latency_ms,
+        error_message="",
+    )
+
     return answer
 
 
@@ -405,7 +486,7 @@ def save_answer(answer: str) -> None:
 
 
 if __name__ == "__main__":
-    sample_question = "Can InsightFlow AI guarantee stock trading profits?"
+    sample_question = "Can InsightFlow AI support private deployment?"
 
     result = generate_chroma_answer(sample_question, top_k=5)
     save_answer(result)
