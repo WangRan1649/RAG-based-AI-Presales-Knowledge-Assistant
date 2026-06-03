@@ -3,7 +3,7 @@ from generate_answer_chroma import generate_chroma_answer, save_answer
 
 def main() -> None:
     """
-    Command-line entry point for the Chroma-based RAG v2 pre-sales assistant.
+    Command-line entry point for the AI Pre-sales Copilot.
 
     This version uses:
     - sentence-transformers embeddings
@@ -14,7 +14,7 @@ def main() -> None:
     """
 
     print("=" * 80)
-    print("RAG v2 — Chroma-based AI Pre-sales Knowledge Assistant")
+    print("AI Pre-sales Copilot — RAG + LLM + Evaluation + Guardrails")
     print("=" * 80)
 
     print("\nAsk a pre-sales question about InsightFlow AI.")
