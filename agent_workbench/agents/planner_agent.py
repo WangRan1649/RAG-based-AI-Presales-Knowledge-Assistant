@@ -193,6 +193,7 @@ GENERAL_PRODUCT_KEYWORDS = {
 
 HIGH_RISK_INTENTS = {
     "pricing_question",
+    "sla_question",
     "compliance_question",
     "case_study_question",
 }
@@ -241,6 +242,9 @@ def classify_intent(user_question: str) -> str:
 
     if _contains_any(question, PRICING_KEYWORDS):
         return "pricing_question"
+    
+    if _contains_any(question, SLA_KEYWORDS):
+        return "sla_question"
 
     if _contains_any(question, COMPLIANCE_KEYWORDS):
         return "compliance_question"

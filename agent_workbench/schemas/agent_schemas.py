@@ -25,6 +25,7 @@ GroundingStatus = str
 
 ALLOWED_INTENTS = {
     "pricing_question",
+    "sla_question",
     "technical_question",
     "deployment_question",
     "security_question",
