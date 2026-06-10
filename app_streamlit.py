@@ -1,14 +1,18 @@
 import html
+import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 import streamlit as st
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 RAG_APP_DIR = PROJECT_ROOT / "rag_app"
+TRACE_FILE = PROJECT_ROOT / "agent_workbench" / "traces" / "agent_traces.jsonl"
 
+sys.path.append(str(PROJECT_ROOT))
 sys.path.append(str(RAG_APP_DIR))
 
 from generate_answer_chroma import generate_chroma_answer
@@ -150,6 +154,9 @@ def initialize_session_state() -> None:
     if "feedback_submitted" not in st.session_state:
         st.session_state.feedback_submitted = False
 
+    if "last_agent_run" not in st.session_state:
+        st.session_state.last_agent_run = None
+
 
 def extract_section(markdown_text: str, heading: str) -> str:
     """
@@ -224,6 +231,190 @@ def render_metric_card(label: str, value: str) -> None:
         """,
         unsafe_allow_html=True,
     )
+
+
+def read_latest_trace() -> dict[str, Any] | None:
+    """
+    Read the latest Agent Workbench JSONL trace.
+    """
+
+    if not TRACE_FILE.exists():
+        return None
+
+    try:
+        lines = [line.strip() for line in TRACE_FILE.read_text(encoding="utf-8").splitlines() if line.strip()]
+    except OSError:
+        return None
+
+    if not lines:
+        return None
+
+    try:
+        return json.loads(lines[-1])
+    except json.JSONDecodeError:
+        return {"errors": ["Latest trace line is not valid JSON."], "raw_trace_preview": lines[-1][:2000]}
+
+
+def compact_json(value: Any) -> str:
+    """
+    Convert dict/list values into readable JSON for Streamlit code blocks.
+    """
+
+    if value in (None, "", [], {}):
+        return "None"
+    return json.dumps(value, ensure_ascii=False, indent=2, default=str)
+
+
+def render_key_value_json(title: str, value: Any, expanded: bool = True) -> None:
+    with st.expander(title, expanded=expanded):
+        st.code(compact_json(value), language="json")
+
+
+def render_sources_table(sources: list[dict[str, Any]]) -> None:
+    if not sources:
+        st.info("No retrieved sources were returned for this run.")
+        return
+
+    rows = []
+    for source in sources:
+        rows.append(
+            {
+                "source_file": source.get("source_file", ""),
+                "chunk_id": source.get("chunk_id", ""),
+                "chunk_index": source.get("chunk_index", ""),
+                "similarity_score": source.get("similarity_score", ""),
+                "content_preview": source.get("content_preview", ""),
+            }
+        )
+    st.dataframe(rows, use_container_width=True, hide_index=True)
+
+
+def render_fallback_notes(trace_data: dict[str, Any]) -> None:
+    retrieval_metadata = trace_data.get("retrieval_metadata", {}) or {}
+    errors = trace_data.get("errors", []) or []
+    retrieval_mode = str(retrieval_metadata.get("retrieval_mode", "unknown"))
+    joined_errors = " | ".join(str(error) for error in errors)
+
+    if "markdown" in retrieval_mode or "Chroma retrieval unavailable" in joined_errors:
+        st.info(
+            "Chroma unavailable / Markdown fallback: this run could not use Chroma, "
+            "so Retrieval Agent searched local Markdown files under knowledge_base/*.md. "
+            "This is expected in lightweight portfolio environments without chromadb."
+        )
+
+    if errors:
+        st.warning("Errors / fallback notes are present in this run. Review the details below before using the answer.")
+
+
+def render_agent_workbench_state(state: dict[str, Any]) -> None:
+    st.markdown('<div class="section-title">Agent Workbench V3.0 Portfolio View</div>', unsafe_allow_html=True)
+
+    metric_col1, metric_col2, metric_col3, metric_col4 = st.columns(4)
+    risk_decision = state.get("risk_decision", {}) or {}
+    critic_decision = state.get("critic_decision", {}) or {}
+
+    with metric_col1:
+        render_metric_card("Intent", str((state.get("planner_output", {}) or {}).get("intent", "unknown")))
+    with metric_col2:
+        render_metric_card("Risk", str(risk_decision.get("risk_level", "unknown")))
+    with metric_col3:
+        render_metric_card("Grounding", str(critic_decision.get("grounding_status", "unknown")))
+    with metric_col4:
+        render_metric_card("Human Review", str(state.get("human_review_required", False)))
+
+    render_fallback_notes(state)
+
+    render_card("User Question", str(state.get("user_question", "")), "card source-card")
+    render_card("Final Answer", str(state.get("final_answer", "")), "card answer-card")
+
+    left_col, right_col = st.columns(2)
+    with left_col:
+        render_key_value_json("Planner Output", state.get("planner_output", {}))
+        render_key_value_json("Risk Decision", state.get("risk_decision", {}))
+        render_key_value_json("Email Draft", state.get("email_draft", {}), expanded=False)
+        render_key_value_json("Tools Called", state.get("tools_called", []), expanded=False)
+
+    with right_col:
+        render_key_value_json("Critic Decision", state.get("critic_decision", {}))
+        render_key_value_json("Memory Summary", state.get("memory_summary", {}), expanded=False)
+        render_key_value_json("Errors / Fallback Notes", state.get("errors", []), expanded=False)
+        render_key_value_json(
+            "Trace Preview",
+            {
+                "run_id": state.get("run_id"),
+                "timestamp": state.get("timestamp"),
+                "latency_ms": state.get("latency_ms"),
+                "retrieval_metadata": state.get("retrieval_metadata", {}),
+                "human_review_required": state.get("human_review_required", False),
+            },
+            expanded=False,
+        )
+
+    st.markdown('<div class="section-title">Retrieved Sources</div>', unsafe_allow_html=True)
+    render_sources_table(state.get("retrieved_sources", []) or [])
+
+
+def render_agent_workbench_tab() -> None:
+    st.markdown(
+        """
+        Run the full Agent Workbench workflow: Planner, Retrieval, Risk Review,
+        Critic, Answer, Email Draft, Memory Compression, Tool Trace.
+        """
+    )
+
+    question = st.text_area(
+        "Agent Workbench question",
+        value="Can InsightFlow support private deployment and SLA?",
+        height=100,
+        placeholder="Ask about product features, pricing, SLA, HIPAA, security, integration, roadmap, or customer cases.",
+        key="agent_workbench_question",
+    )
+
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        run_clicked = st.button("Run Agent", type="primary", use_container_width=True)
+    with col2:
+        st.caption("Each run writes a JSONL trace to agent_workbench/traces/agent_traces.jsonl.")
+
+    if run_clicked:
+        try:
+            from agent_workbench.harness.agent_orchestrator import run_agent
+
+            with st.spinner("Running Agent Workbench workflow..."):
+                state = run_agent(question.strip() or "Can InsightFlow support private deployment and SLA?")
+            st.session_state.last_agent_run = state.to_dict()
+        except Exception as exc:
+            st.error(f"Agent Workbench failed safely: {type(exc).__name__}: {exc}")
+            st.session_state.last_agent_run = {
+                "user_question": question,
+                "final_answer": "Agent workflow could not complete in the current environment.",
+                "errors": [f"{type(exc).__name__}: {exc}"],
+                "human_review_required": True,
+            }
+
+    if st.session_state.last_agent_run:
+        render_agent_workbench_state(st.session_state.last_agent_run)
+    else:
+        latest = read_latest_trace()
+        if latest:
+            st.info("Showing latest saved trace. Click Run Agent to generate a fresh run.")
+            render_agent_workbench_state(latest)
+
+
+def render_trace_viewer_tab() -> None:
+    st.markdown(
+        """
+        Trace Viewer reads the most recent run from
+        `agent_workbench/traces/agent_traces.jsonl`.
+        """
+    )
+
+    latest = read_latest_trace()
+    if not latest:
+        st.warning("No trace found yet. Run Agent Workbench once to create agent_traces.jsonl.")
+        return
+
+    render_agent_workbench_state(latest)
 
 
 def parse_confidence(confidence_text: str) -> tuple[str, str]:
@@ -483,30 +674,41 @@ def main() -> None:
     render_sidebar()
     render_header()
 
-    question = st.text_area(
-        "Customer question",
-        value="Can InsightFlow AI support private deployment?",
-        height=100,
-        placeholder="Enter a customer question about deployment, security, pricing, integrations, or product capabilities.",
+    rag_tab, agent_tab, trace_tab = st.tabs(
+        ["RAG Copilot", "Agent Workbench V3", "Trace Viewer"]
     )
 
-    col1, col2 = st.columns([1, 5])
+    with rag_tab:
+        question = st.text_area(
+            "Customer question",
+            value="Can InsightFlow AI support private deployment?",
+            height=100,
+            placeholder="Enter a customer question about deployment, security, pricing, integrations, or product capabilities.",
+        )
 
-    with col1:
-        ask_clicked = st.button("Ask Copilot", type="primary", use_container_width=True)
+        col1, col2 = st.columns([1, 5])
 
-    with col2:
-        st.caption("The system retrieves relevant knowledge base chunks before generating an answer.")
+        with col1:
+            ask_clicked = st.button("Ask Copilot", type="primary", use_container_width=True)
 
-    if ask_clicked:
-        cleaned_question = question.strip()
+        with col2:
+            st.caption("The system retrieves relevant knowledge base chunks before generating an answer.")
 
-        if not cleaned_question:
-            st.error("Please enter a valid question.")
-        else:
-            render_answer(cleaned_question)
+        if ask_clicked:
+            cleaned_question = question.strip()
 
-    render_feedback_section()
+            if not cleaned_question:
+                st.error("Please enter a valid question.")
+            else:
+                render_answer(cleaned_question)
+
+        render_feedback_section()
+
+    with agent_tab:
+        render_agent_workbench_tab()
+
+    with trace_tab:
+        render_trace_viewer_tab()
 
 
 if __name__ == "__main__":

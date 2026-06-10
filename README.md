@@ -1,5 +1,109 @@
 # AI Pre-sales Copilot
 
+## Agent Workbench V3.0 Portfolio Demo
+
+Agent Workbench V3.0 is the portfolio-oriented version of this project. It keeps the existing RAG, Agent workflow, eval, and trace capabilities, then adds a clearer Streamlit showcase, Trace Viewer, demo questions, case study, interview Q&A, and resume bullets.
+
+中文说明：V3.0 的目标是让项目更适合 GitHub、飞书作品集、简历和面试展示。它不是生产级平台，也没有引入 PostgreSQL、Redis、OpenSearch、Airflow、Docker Compose、MCP、LangGraph、复杂权限系统、真实邮件发送或自动外部网络调用。
+
+### Architecture Overview
+
+```text
+User Question
+-> Planner Agent
+-> Safe Executor + Tool Registry
+-> Retrieval Agent
+   -> Chroma retrieval when available
+   -> Markdown fallback when Chroma is unavailable
+-> Risk Review Agent
+-> Answer Agent
+-> Critic Agent / grounding check
+-> Email Agent draft only
+-> Memory Manager / compression
+-> Agent Trace JSONL
+-> Agent Eval
+-> Streamlit Agent Workbench V3 + Trace Viewer
+```
+
+Key files:
+
+- `app_streamlit.py`: Streamlit demo with `RAG Copilot`, `Agent Workbench V3`, and `Trace Viewer` tabs.
+- `agent_workbench/harness/agent_orchestrator.py`: end-to-end Agent workflow runner.
+- `agent_workbench/traces/agent_traces.jsonl`: JSONL trace file for recent runs.
+- `eval/run_agent_eval.py`: Agent Eval runner.
+- `scripts/run_agent_workbench_smoke_test.py`: smoke test runner.
+- `docs/demo_questions_agent_workbench.md`: screenshot and interview demo questions.
+- `docs/agent_workbench_case_study_cn.md`: Chinese case study.
+- `docs/interview_qa_agent_workbench_cn.md`: Chinese interview Q&A.
+- `docs/resume_bullets_agent_workbench.md`: Chinese and English resume bullets.
+
+### Run Commands
+
+Run one Agent Workbench question:
+
+```bash
+python -m agent_workbench.harness.agent_orchestrator --question "Can InsightFlow support private deployment and SLA?"
+```
+
+Run without writing trace:
+
+```bash
+python -m agent_workbench.harness.agent_orchestrator --question "Can InsightFlow support private deployment and SLA?" --no-trace
+```
+
+Run Agent Eval:
+
+```bash
+python eval\run_agent_eval.py
+```
+
+Run smoke test:
+
+```bash
+python scripts\run_agent_workbench_smoke_test.py
+```
+
+Run Streamlit demo:
+
+```bash
+streamlit run app_streamlit.py
+```
+
+If Streamlit is not installed in the current environment, the CLI workflow and eval can still run. Install optional UI dependencies with:
+
+```bash
+pip install -r requirements.txt
+```
+
+If `chromadb` is not installed or the vector store is unavailable, Retrieval Agent records a clear error such as:
+
+```text
+Chroma retrieval unavailable: ModuleNotFoundError: No module named 'chromadb'
+```
+
+Then it automatically falls back to Markdown retrieval over `knowledge_base/*.md`. This is expected in lightweight portfolio environments and should not be treated as a workflow failure.
+
+### V2 Eval Result Summary
+
+Latest V2 Agent Eval summary:
+
+- overall_pass: 22/22
+- pass rate: 100.0%
+- high-risk cases: 13/13 passed
+- covered scenarios: product feature, pricing, SLA, HIPAA, GDPR, SOC2, private deployment, customer case, roadmap, security, integration, memory, invalid / non-sales question
+- fallback behavior: Chroma unavailable is captured in trace and handled through Markdown fallback
+
+### Portfolio Highlights
+
+- RAG-based pre-sales knowledge assistant with source-grounded answers.
+- Multi-Agent Workflow: Planner, Retrieval, Risk Review, Critic, Answer, Email Draft, Memory Manager.
+- Tool Registry and Safe Executor for lightweight tool governance.
+- Risk Review for pricing, SLA, compliance, private deployment, roadmap, and customer-reference questions.
+- Critic / grounding check to reduce unsupported claims.
+- Memory Compression that avoids saving hallucinated or unsupported facts.
+- Agent Trace JSONL for debugging, eval, screenshots, and interview explanation.
+- Agent Eval with 22/22 overall_pass on the current portfolio dataset.
+
 # AI 售前助手项目
 
 > RAG + LLM Client + Evaluation + Guardrails + Lightweight Tracing + Streamlit Demo
