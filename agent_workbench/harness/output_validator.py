@@ -1,7 +1,9 @@
-"""Output validators and safe fallbacks for Agent Workbench V1."""
+"""Output validators and safe fallbacks for Agent Workbench V2."""
 
 from __future__ import annotations
 
+import json
+import re
 from typing import Any
 
 from agent_workbench.schemas.agent_schemas import (
@@ -16,6 +18,35 @@ from agent_workbench.schemas.agent_schemas import (
     validate_intent,
     validate_risk_level,
 )
+
+
+def repair_json_once(text: str) -> str:
+    """Apply one lightweight JSON repair pass for common model-output mistakes."""
+    repaired = (text or "").strip()
+    if repaired.startswith("```"):
+        repaired = re.sub(r"^```(?:json)?", "", repaired, flags=re.IGNORECASE).strip()
+        repaired = re.sub(r"```$", "", repaired).strip()
+    repaired = repaired.replace("'", '"')
+    repaired = re.sub(r",\s*([}\]])", r"\1", repaired)
+    return repaired
+
+
+def parse_json_safely(value: Any, fallback: Any | None = None) -> Any:
+    """Parse JSON without allowing JSONDecodeError to break the workflow."""
+    if isinstance(value, (dict, list)):
+        return value
+    if not isinstance(value, str):
+        return fallback
+
+    try:
+        return json.loads(value)
+    except json.JSONDecodeError:
+        pass
+
+    try:
+        return json.loads(repair_json_once(value))
+    except json.JSONDecodeError:
+        return fallback
 
 
 def _as_bool(value: Any, default: bool = False) -> bool:
@@ -43,7 +74,51 @@ def _as_str(value: Any, default: str = "") -> str:
 def _as_dict(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
+    parsed = parse_json_safely(value, fallback={})
+    if isinstance(parsed, dict):
+        return parsed
     return {}
+
+
+def validate_tool_input(tool_name: str, tool_input: Any) -> dict[str, Any]:
+    """Basic input guard used by SafeExecutor before invoking a tool."""
+    data = _as_dict(tool_input)
+    if tool_name == "search_docs":
+        return {
+            "query": _as_str(data.get("query")),
+            "risk_level": validate_risk_level(_as_str(data.get("risk_level"), "medium")),
+            "top_k": data.get("top_k"),
+        }
+    if tool_name in {"review_risk", "critic_check", "draft_email", "compress_memory"}:
+        return data
+    return data
+
+
+def validate_tool_output(tool_name: str, output: Any) -> Any:
+    """Basic output guard used by SafeExecutor after a tool returns."""
+    if tool_name == "review_risk":
+        return validate_risk_decision(output)
+    if tool_name == "critic_check":
+        return validate_critic_decision(output)
+    if tool_name == "draft_email":
+        return validate_email_draft(output)
+    if tool_name == "compress_memory":
+        return validate_memory_summary(output)
+    if tool_name == "search_docs":
+        data = _as_dict(output)
+        if not data:
+            return {
+                "query": "",
+                "retrieval_mode": "validator_empty_search_output",
+                "sources": [],
+                "errors": ["search_docs returned invalid output."],
+                "retrieval_attempts": [],
+            }
+        data.setdefault("sources", [])
+        data.setdefault("errors", [])
+        data.setdefault("retrieval_attempts", [])
+        return data
+    return output
 
 
 def validate_planner_output(output: Any) -> PlannerOutput:

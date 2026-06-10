@@ -1,17 +1,19 @@
-"""End-to-end Agent Workbench V1 workflow orchestrator."""
+"""End-to-end Agent Workbench V2 workflow orchestrator."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import time
 from pathlib import Path
 from typing import Any
 
+from agent_workbench.agents.answer_agent import AnswerAgent
 from agent_workbench.agents.critic_agent import CriticAgent
 from agent_workbench.agents.email_agent import EmailAgent
 from agent_workbench.agents.memory_manager import MemoryManager
 from agent_workbench.agents.planner_agent import PlannerAgent
-from agent_workbench.agents.retrieval_agent import RetrievalAgent, top_k_for_risk
+from agent_workbench.agents.retrieval_agent import RetrievalAgent, is_command_like_query, top_k_for_risk
 from agent_workbench.agents.risk_review_agent import RiskReviewAgent
 from agent_workbench.harness.output_validator import (
     validate_critic_decision,
@@ -34,12 +36,18 @@ from agent_workbench.schemas.agent_schemas import (
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TRACE_DIR = PROJECT_ROOT / "agent_workbench" / "traces"
 TRACE_FILE = TRACE_DIR / "agent_traces.jsonl"
+DEFAULT_DEMO_QUESTION = "Can InsightFlow AI support private deployment and what should we tell the customer?"
 
 
-def _sources_from_output(output: Any) -> tuple[list[RetrievedSource], list[str]]:
+def _sources_from_output(output: Any) -> tuple[list[RetrievedSource], list[str], dict[str, Any]]:
     errors: list[str] = []
+    metadata: dict[str, Any] = {}
     if not isinstance(output, dict):
-        return [], ["Retrieval output was not a dict."]
+        return [], ["Retrieval output was not a dict."], metadata
+
+    for key in ["query", "original_query", "rewritten_query", "retrieval_mode", "retrieval_attempts", "risk_level"]:
+        if key in output:
+            metadata[key] = output.get(key)
 
     for error in output.get("errors", []) or []:
         errors.append(str(error))
@@ -54,88 +62,61 @@ def _sources_from_output(output: Any) -> tuple[list[RetrievedSource], list[str]]
                 sources.append(RetrievedSource(**allowed))
             except Exception as exc:
                 errors.append(f"Invalid retrieved source skipped: {type(exc).__name__}: {exc}")
-    return sources, errors
+    return sources, errors, metadata
 
 
-def _build_source_lines(retrieved_sources: list[RetrievedSource]) -> str:
-    if not retrieved_sources:
-        return "- No retrieved source available."
-    return "\n".join(
-        f"- {source.source_file} | {source.chunk_id} | similarity={source.similarity_score}"
-        for source in retrieved_sources[:6]
+def _safe_command_answer(user_question: str) -> str:
+    return (
+        f"The input looks like a command rather than a customer pre-sales question: {user_question!r}. "
+        "For safety, Agent Workbench did not treat it as a product answer request. "
+        "Run commands in your terminal, or ask a product, pricing, deployment, security, integration, or compliance question."
     )
-
-
-def build_raw_answer(user_question: str, retrieved_sources: list[RetrievedSource], memory_loaded: dict[str, Any]) -> str:
-    """Create a deterministic grounded draft from retrieved source previews."""
-    if not retrieved_sources:
-        return (
-            "I do not have enough retrieved knowledge base evidence to answer this safely. "
-            "Please ask a human pre-sales reviewer to confirm the details before using this externally."
-        )
-
-    evidence = "\n".join(
-        f"{idx}. {source.content_preview}"
-        for idx, source in enumerate(retrieved_sources[:3], start=1)
-    )
-    memory_hint = ""
-    profile = memory_loaded.get("customer_profile") if isinstance(memory_loaded, dict) else {}
-    if profile:
-        memory_hint = f"\nKnown customer context: {json.dumps(profile, ensure_ascii=False)}\n"
-
-    return f"""Draft answer grounded in retrieved sources:
-
-Customer question: {user_question}
-{memory_hint}
-Based on the knowledge base evidence, here is a cautious pre-sales response:
-
-{evidence}
-
-Source references:
-{_build_source_lines(retrieved_sources)}
-
-This draft should be reviewed before being sent externally, especially for sensitive commercial, compliance, customer-reference, roadmap, or deployment commitments."""
-
-
-def revise_answer_for_critic(raw_answer: str, critic_decision: CriticDecision, risk_decision: RiskDecision) -> str:
-    if not critic_decision.revision_required:
-        return raw_answer
-
-    unsupported = "\n".join(f"- {claim}" for claim in critic_decision.unsupported_claims) or "- Grounding is uncertain."
-    return f"""I cannot safely provide a definitive customer-facing answer yet because some high-risk claims are not fully supported by retrieved sources.
-
-What can be shared safely:
-- The answer should be limited to retrieved knowledge base evidence.
-- Any pricing, SLA, HIPAA, compliance, private deployment, customer case, roadmap, security, or legal commitment needs human review.
-- The current draft can be used internally as a starting point, not as an approved external response.
-
-Items requiring review:
-{unsupported}
-
-Risk guidance:
-{risk_decision.safe_response_guidance}
-
-Original internal draft:
-{raw_answer}"""
 
 
 class AgentOrchestrator:
-    """Run the full Agent Workbench V1 workflow."""
+    """Run the full Agent Workbench V2 workflow."""
 
-    def __init__(self, memory_manager: MemoryManager | None = None) -> None:
+    def __init__(self, memory_manager: MemoryManager | None = None, enable_trace: bool = True) -> None:
         self.memory_manager = memory_manager or MemoryManager()
+        self.enable_trace = enable_trace
         self.planner = PlannerAgent()
         self.retrieval = RetrievalAgent()
         self.risk_review = RiskReviewAgent()
         self.critic = CriticAgent()
+        self.answer = AnswerAgent()
         self.email = EmailAgent()
         self.executor = SafeExecutor()
 
-    def run(self, user_question: str) -> AgentRunState:
+    def run(self, user_question: str, enable_trace: bool | None = None) -> AgentRunState:
         start = time.perf_counter()
         state = AgentRunState.new(user_question=user_question)
+        should_trace = self.enable_trace if enable_trace is None else enable_trace
 
         try:
+            if is_command_like_query(user_question):
+                state.add_error("Command-like input was not treated as a pre-sales question.")
+                state.final_answer = _safe_command_answer(user_question)
+                state.raw_answer = state.final_answer
+                state.risk_decision = RiskDecision(
+                    risk_level="low",
+                    risk_categories=[],
+                    requires_human_review=False,
+                    safe_response_guidance="No product answer generated for command-like input.",
+                )
+                state.critic_decision = CriticDecision(
+                    grounding_status="uncertain",
+                    unsupported_claims=[],
+                    revision_required=False,
+                    critic_note="Command-like input was safely rejected before retrieval.",
+                )
+                state.memory_summary = self.memory_manager.compress_memory(
+                    user_question=user_question,
+                    final_answer=state.final_answer,
+                    risk_decision=state.risk_decision,
+                    critic_decision=state.critic_decision,
+                )
+                return state
+
             state.memory_loaded = self.memory_manager.load_context()
 
             state.planner_output = validate_planner_output(self.planner.run(user_question))
@@ -157,23 +138,14 @@ class AgentOrchestrator:
             if retrieval_result.error:
                 state.add_error(retrieval_result.error)
 
-            state.retrieved_sources, retrieval_errors = _sources_from_output(retrieval_result.output)
+            state.retrieved_sources, retrieval_errors, state.retrieval_metadata = _sources_from_output(retrieval_result.output)
             for error in retrieval_errors:
                 state.add_error(error)
-
-            state.raw_answer = build_raw_answer(
-                user_question=user_question,
-                retrieved_sources=state.retrieved_sources,
-                memory_loaded=state.memory_loaded,
-            )
 
             risk_result = self.executor.execute(
                 tool_name="review_risk",
                 tool_function=self.risk_review.run,
-                tool_input={
-                    "user_question": user_question,
-                    "raw_answer": state.raw_answer,
-                },
+                tool_input={"user_question": user_question},
                 input_summary=f"risk review for run={state.run_id}",
             )
             if risk_result.tool_call_record:
@@ -183,6 +155,16 @@ class AgentOrchestrator:
             state.risk_decision = validate_risk_decision(risk_result.output)
             if state.risk_decision.requires_human_review:
                 state.mark_human_review_required()
+
+            initial_answer = self.answer.run(
+                {
+                    "user_question": user_question,
+                    "retrieved_sources": state.retrieved_sources,
+                    "risk_decision": state.risk_decision,
+                    "memory_loaded": state.memory_loaded,
+                }
+            )
+            state.raw_answer = initial_answer.raw_answer
 
             critic_result = self.executor.execute(
                 tool_name="critic_check",
@@ -203,11 +185,15 @@ class AgentOrchestrator:
             if state.critic_decision.revision_required:
                 state.mark_human_review_required()
 
-            state.final_answer = revise_answer_for_critic(
-                raw_answer=state.raw_answer,
-                critic_decision=state.critic_decision,
-                risk_decision=state.risk_decision,
+            final_answer = self.answer.run(
+                {
+                    "raw_answer": state.raw_answer,
+                    "retrieved_sources": state.retrieved_sources,
+                    "risk_decision": state.risk_decision,
+                    "critic_decision": state.critic_decision,
+                }
             )
+            state.final_answer = final_answer.final_answer
 
             email_output: EmailDraft = EmailDraft()
             if state.planner_output.requires_email_draft:
@@ -266,7 +252,8 @@ class AgentOrchestrator:
             state.mark_human_review_required()
         finally:
             state.latency_ms = int((time.perf_counter() - start) * 1000)
-            write_trace(state)
+            if should_trace:
+                write_trace(state)
 
         return state
 
@@ -277,18 +264,30 @@ def write_trace(state: AgentRunState) -> None:
         file.write(json.dumps(state.to_dict(), ensure_ascii=False, default=str) + "\n")
 
 
-def run_agent(user_question: str, memory_manager: MemoryManager | None = None) -> AgentRunState:
-    return AgentOrchestrator(memory_manager=memory_manager).run(user_question=user_question)
+def run_agent(
+    user_question: str = DEFAULT_DEMO_QUESTION,
+    memory_manager: MemoryManager | None = None,
+    enable_trace: bool = True,
+) -> AgentRunState:
+    return AgentOrchestrator(memory_manager=memory_manager, enable_trace=enable_trace).run(user_question=user_question)
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Run AI Pre-sales Agent Workbench V2.")
+    parser.add_argument("--question", default=DEFAULT_DEMO_QUESTION, help="Customer pre-sales question to answer.")
+    parser.add_argument("--no-trace", action="store_true", help="Run without writing agent_workbench/traces/agent_traces.jsonl.")
+    return parser
 
 
 def main() -> None:
-    question = input("User Question: ").strip()
-    if not question:
-        question = "Can InsightFlow AI support private deployment and what should we tell the customer?"
-
-    state = run_agent(question)
+    args = _build_parser().parse_args()
+    question = (args.question or DEFAULT_DEMO_QUESTION).strip() or DEFAULT_DEMO_QUESTION
+    state = run_agent(question, enable_trace=not args.no_trace)
     print(json.dumps(state.to_dict(), ensure_ascii=False, indent=2, default=str))
-    print(f"\nTrace written to: {TRACE_FILE}")
+    if args.no_trace:
+        print("\nTrace disabled by --no-trace")
+    else:
+        print(f"\nTrace written to: {TRACE_FILE}")
 
 
 if __name__ == "__main__":

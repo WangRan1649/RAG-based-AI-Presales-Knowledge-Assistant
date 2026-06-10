@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
 from dataclasses import asdict, dataclass
 from typing import Any, Callable
 
+from agent_workbench.harness.output_validator import validate_tool_input, validate_tool_output
 from agent_workbench.harness.tool_registry import get_tool_spec, validate_tool_name
 from agent_workbench.schemas.agent_schemas import ToolCallRecord
 
@@ -153,7 +154,7 @@ class SafeExecutor:
         5. 返回结构化执行结果
         """
         start = time.perf_counter()
-        tool_input = tool_input or {}
+        tool_input = validate_tool_input(tool_name, tool_input or {})
 
         if not validate_tool_name(tool_name):
             latency_ms = int((time.perf_counter() - start) * 1000)
@@ -185,7 +186,7 @@ class SafeExecutor:
         future = executor.submit(tool_function, tool_input)
 
         try:
-            output = future.result(timeout=timeout_seconds)
+            output = validate_tool_output(tool_name, future.result(timeout=timeout_seconds))
             latency_ms = int((time.perf_counter() - start) * 1000)
 
             record = ToolCallRecord(

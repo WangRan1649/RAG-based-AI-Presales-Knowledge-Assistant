@@ -218,6 +218,7 @@ class AgentRunState:
     planner_output: PlannerOutput = field(default_factory=PlannerOutput)
     tools_called: list[ToolCallRecord] = field(default_factory=list)
     retrieved_sources: list[RetrievedSource] = field(default_factory=list)
+    retrieval_metadata: dict[str, Any] = field(default_factory=dict)
 
     raw_answer: str = ""
     risk_decision: RiskDecision = field(default_factory=RiskDecision)
@@ -260,6 +261,7 @@ class AgentRunState:
             "planner_output": self.planner_output.to_dict(),
             "tools_called": [tool.to_dict() for tool in self.tools_called],
             "retrieved_sources": [source.to_dict() for source in self.retrieved_sources],
+            "retrieval_metadata": self.retrieval_metadata,
             "raw_answer": self.raw_answer,
             "risk_decision": self.risk_decision.to_dict(),
             "critic_decision": self.critic_decision.to_dict(),

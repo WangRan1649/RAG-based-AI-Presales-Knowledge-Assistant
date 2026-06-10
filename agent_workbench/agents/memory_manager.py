@@ -1,4 +1,4 @@
-"""Lightweight memory manager for Agent Workbench V1."""
+"""Lightweight memory manager for Agent Workbench V2."""
 
 from __future__ import annotations
 
@@ -9,11 +9,19 @@ from typing import Any
 from agent_workbench.schemas.agent_schemas import CriticDecision, MemorySummary, RiskDecision
 
 
+COMMAND_PREFIXES = ("python ", "git ", "pip ", "npm ", "node ", "powershell", "cmd ", "cd ", "dir", "ls")
+
+
 @dataclass
 class MemoryState:
     short_term: list[dict[str, Any]] = field(default_factory=list)
     session_memory: list[str] = field(default_factory=list)
     customer_profile: dict[str, Any] = field(default_factory=dict)
+
+
+def _is_command_like(text: str) -> bool:
+    lowered = (text or "").strip().lower()
+    return lowered.startswith(COMMAND_PREFIXES) or lowered.endswith(".py")
 
 
 class MemoryManager:
@@ -30,11 +38,15 @@ class MemoryManager:
         }
 
     def _extract_customer_profile(self, text: str) -> None:
+        if _is_command_like(text):
+            return
         lowered = text.lower()
-        if "hipaa" in lowered or "healthcare" in lowered or "医疗" in text:
+        if "hipaa" in lowered or "healthcare" in lowered or "medical" in lowered:
             self.state.customer_profile["industry"] = "healthcare"
-        if any(term in lowered for term in ["private deployment", "on-prem", "on premise", "私有化", "本地部署"]):
+        if any(term in lowered for term in ["private deployment", "on-prem", "on premise", "private cloud"]):
             self.state.customer_profile["deployment_preference"] = "private_or_on_prem"
+        if any(term in lowered for term in ["gdpr", "soc2", "soc 2", "compliance"]):
+            self.state.customer_profile["compliance_interest"] = True
         if any(term in lowered for term in ["salesforce", "hubspot", "power bi", "mysql", "postgresql"]):
             integrations = self.state.customer_profile.setdefault("integrations", [])
             for name in ["Salesforce", "HubSpot", "Power BI", "MySQL", "PostgreSQL"]:
@@ -48,10 +60,17 @@ class MemoryManager:
         risk_decision: RiskDecision,
         critic_decision: CriticDecision,
     ) -> MemorySummary:
+        if _is_command_like(user_question):
+            return MemorySummary(
+                summary="Command-like input ignored by memory manager; no confirmed facts were stored.",
+                open_questions=["Ask a product pre-sales question to update memory."],
+                next_actions=["Do not store shell commands as customer memory."],
+            )
+
+        cleaned_need = re.sub(r"\s+", " ", user_question).strip()
         self.state.short_term.append(
             {
-                "user_question": user_question,
-                "final_answer": final_answer[:1200],
+                "customer_need": cleaned_need[:500],
                 "risk_categories": risk_decision.risk_categories,
                 "grounding_status": critic_decision.grounding_status,
             }
@@ -59,20 +78,15 @@ class MemoryManager:
         self._extract_customer_profile(user_question)
 
         confirmed_facts: list[str] = []
-        if not critic_decision.revision_required and critic_decision.grounding_status in {"supported", "partially_supported"}:
-            cleaned_answer = re.sub(r"\s+", " ", final_answer).strip()
-            if cleaned_answer:
-                confirmed_facts.append(cleaned_answer[:240])
-                self.state.session_memory.append(cleaned_answer[:240])
+        if not critic_decision.revision_required and risk_decision.risk_level in {"low", "medium"} and cleaned_need:
+            confirmed_facts.append(f"Customer asked about: {cleaned_need[:180]}")
+            self.state.session_memory.append(confirmed_facts[-1])
 
-        risk_concerns = [
-            f"{category} requires careful review"
-            for category in risk_decision.risk_categories
-        ]
+        risk_concerns = [f"{category} requires careful review" for category in risk_decision.risk_categories]
         if critic_decision.unsupported_claims:
             risk_concerns.extend(critic_decision.unsupported_claims)
 
-        open_questions = []
+        open_questions: list[str] = []
         if critic_decision.revision_required:
             open_questions.append("Confirm unsupported or uncertain claims before customer-facing use.")
         if risk_decision.requires_human_review:
@@ -83,9 +97,9 @@ class MemoryManager:
             next_actions.insert(0, "Get human approval before sending.")
 
         summary = (
-            f"Stored {len(self.state.short_term)} short-term turns. "
+            f"Stored {len(self.state.short_term)} short-term customer needs. "
             f"Confirmed facts stored this run: {len(confirmed_facts)}. "
-            "Unsupported claims were not saved as confirmed facts."
+            "Unsupported claims and shell/script commands were not saved as confirmed facts."
         )
 
         return MemorySummary(

@@ -39,6 +39,10 @@ PRICING_KEYWORDS = {
     "quotation",
     "budget",
     "contract value",
+    "packaging",
+    "package",
+    "proof of concept",
+    "poc",
     "费用",
     "价格",
     "报价",
@@ -56,6 +60,7 @@ SLA_KEYWORDS = {
     "99.9",
     "99.99",
     "service level",
+    "executive sponsor",
     "服务等级",
     "可用性",
     "宕机",
@@ -167,6 +172,10 @@ ROADMAP_KEYWORDS = {
     "will you support",
     "when will",
     "plan to support",
+    "promise",
+    "next release",
+    "committed release",
+    "release will include",
     "未来功能",
     "路线图",
     "什么时候支持",
@@ -263,6 +272,9 @@ def classify_intent(user_question: str) -> str:
 
     if _contains_any(question, TECHNICAL_KEYWORDS):
         return "technical_question"
+
+    if _contains_any(question, ROADMAP_KEYWORDS):
+        return "general_product_question"
 
     if _contains_any(question, GENERAL_PRODUCT_KEYWORDS):
         return "general_product_question"

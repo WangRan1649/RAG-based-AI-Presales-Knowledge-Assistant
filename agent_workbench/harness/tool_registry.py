@@ -35,6 +35,8 @@ class ToolSpec:
     timeout_seconds: int = 10
     fallback_strategy: str = "return_warning"
     enabled: bool = True
+    input_schema: dict[str, str] | None = None
+    output_schema: dict[str, str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert ToolSpec to dict."""
@@ -49,6 +51,8 @@ DEFAULT_TOOL_REGISTRY: dict[str, ToolSpec] = {
         timeout_seconds=15,
         fallback_strategy="return_empty_sources_with_warning",
         enabled=True,
+        input_schema={"query": "str", "risk_level": "low|medium|high", "top_k": "int optional"},
+        output_schema={"sources": "list[RetrievedSource]", "retrieval_mode": "str", "errors": "list[str]"},
     ),
     "review_risk": ToolSpec(
         tool_name="review_risk",
@@ -57,6 +61,8 @@ DEFAULT_TOOL_REGISTRY: dict[str, ToolSpec] = {
         timeout_seconds=8,
         fallback_strategy="mark_medium_risk_and_require_review",
         enabled=True,
+        input_schema={"user_question": "str", "raw_answer": "str optional"},
+        output_schema={"risk_level": "low|medium|high", "risk_categories": "list[str]", "requires_human_review": "bool"},
     ),
     "critic_check": ToolSpec(
         tool_name="critic_check",
@@ -65,6 +71,8 @@ DEFAULT_TOOL_REGISTRY: dict[str, ToolSpec] = {
         timeout_seconds=8,
         fallback_strategy="mark_grounding_uncertain",
         enabled=True,
+        input_schema={"raw_answer": "str", "final_answer": "str", "retrieved_sources": "list[dict]", "risk_decision": "dict"},
+        output_schema={"grounding_status": "supported|partially_supported|unsupported|uncertain", "revision_required": "bool"},
     ),
     "draft_email": ToolSpec(
         tool_name="draft_email",
@@ -73,6 +81,8 @@ DEFAULT_TOOL_REGISTRY: dict[str, ToolSpec] = {
         timeout_seconds=10,
         fallback_strategy="return_empty_email_draft",
         enabled=True,
+        input_schema={"user_question": "str", "final_answer": "str", "risk_decision": "dict", "retrieved_sources": "list[dict]"},
+        output_schema={"subject": "str", "body": "str"},
     ),
     "compress_memory": ToolSpec(
         tool_name="compress_memory",
@@ -81,6 +91,8 @@ DEFAULT_TOOL_REGISTRY: dict[str, ToolSpec] = {
         timeout_seconds=10,
         fallback_strategy="keep_raw_short_term_memory",
         enabled=True,
+        input_schema={"user_question": "str", "final_answer": "str", "risk_decision": "RiskDecision", "critic_decision": "CriticDecision"},
+        output_schema={"customer_profile": "dict", "risk_concerns": "list[str]", "open_questions": "list[str]", "next_actions": "list[str]"},
     ),
 }
 

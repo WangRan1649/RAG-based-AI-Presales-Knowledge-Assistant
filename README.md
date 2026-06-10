@@ -7,6 +7,88 @@
 
 ---
 
+## Agent Workbench V2.0 Engineering Workflow
+
+Agent Workbench V2.0 是在 V1 workflow 上做的工程增强版，目标是更稳定、更容易运行、更容易评估、更容易演示。它仍然保持轻量：不引入 PostgreSQL、Redis、OpenSearch、Airflow、Docker Compose、MCP、LangGraph，也不把作品集项目改造成复杂生产系统。
+
+### V2.0 运行命令
+
+默认 demo question：
+
+```bash
+python -m agent_workbench.harness.agent_orchestrator
+```
+
+指定客户问题：
+
+```bash
+python -m agent_workbench.harness.agent_orchestrator --question "Can InsightFlow support private deployment and SLA?"
+```
+
+不写 trace：
+
+```bash
+python -m agent_workbench.harness.agent_orchestrator --question "Can InsightFlow support private deployment and SLA?" --no-trace
+```
+
+评估：
+
+```bash
+python eval/run_agent_eval.py
+```
+
+Smoke test：
+
+```bash
+python scripts/run_agent_workbench_smoke_test.py
+```
+
+### V2.0 工程增强点
+
+- 新增 `AnswerAgent`：输入 user_question、retrieved_sources、risk_decision，输出 raw_answer 和 final_answer，并避免 unsupported commitment。
+- Orchestrator CLI 支持 `--question`、`--no-trace` 和默认 demo question；命令式输入不会被当成售前问题回答。
+- Retrieval Agent 保持 Chroma 优先、Markdown fallback；没有 chromadb 时不会崩溃，会记录 `retrieval_mode`、`original_query`、`rewritten_query`、`retrieval_attempts`。
+- Markdown fallback 支持 query rewrite：当 top sources 分数过低或无结果时，自动扩展查询再检索一次。
+- Risk Review 覆盖 pricing、SLA、HIPAA、GDPR、SOC2、private deployment、customer case、roadmap、legal、security、integration；高风险问题必须 human review。
+- Critic 对 pricing、SLA、HIPAA、customer case、private deployment 等 unsupported claim 更严格；source 不足时标记 uncertain 或 partially_supported。
+- Email Agent 只生成 draft，不发送；高风险邮件会加入 cautious wording，并清理明显 unsupported commitment。
+- Memory Manager 不保存用户命令、脚本命令或 unsupported claim 作为 confirmed facts，只保留客户需求、风险关注点、open questions、next actions。
+- Output Validator 增加 `parse_json_safely` 和 `repair_json_once`，JSON parse error 不会打断 workflow。
+- Tool Registry 增加简化 input_schema/output_schema，Safe Executor 在执行前后做基础校验。
+
+### V2.0 Fallback 说明
+
+当前本地环境如果没有 `chromadb`，Retrieval Agent 会记录：
+
+```text
+Chroma retrieval unavailable: ModuleNotFoundError: No module named 'chromadb'
+```
+
+随后自动使用 Markdown fallback 检索 `knowledge_base/*.md`。这不是失败，而是为了保证 demo 可以在轻量环境中运行。对于非售前问题或脚本命令，系统会返回安全提示，不会编造产品答案。
+
+### V2.0 Eval 输出
+
+评估数据集扩展到 22 条，覆盖 product feature、pricing、SLA、HIPAA、GDPR、SOC2、private deployment、customer case、roadmap、security、integration、memory、invalid/non-sales question。
+
+输出文件：
+
+```text
+eval/agent_eval_results.csv
+docs/agent_eval_report_v2.md
+```
+
+报告包含 pass rate、失败案例、风险案例表现、average_latency_ms、max_latency_ms，并保留 `overall_pass`。
+
+### V2.0 面试亮点
+
+- 展示从 RAG QA 到 agentic workflow 的演进，同时保持工程克制。
+- 能解释 Planner、Retrieval、Risk Review、Critic、Answer、Email、Memory 的职责边界。
+- 有 Tool Registry、Safe Executor、Output Validator，体现 agent tool governance 和 graceful fallback。
+- 有 trace、eval、report、smoke test，便于现场 demo 和工程复盘。
+- 明确把 unsupported claims 拦在最终答案、邮件草稿和 memory confirmed facts 之外。
+
+---
+
 ## Agent Workbench V2 / AI Presales Agent Workbench
 
 本项目在原有 RAG-based AI Pre-sales Knowledge Assistant 基础上，新增了一个轻量级、可运行、可测试、可追踪的 **AI Pre-sales Agent Workbench**。V1 目标不是堆复杂框架，而是把售前问答中的关键工程能力串成完整 workflow：planning、tool execution、retrieval、risk review、critic grounding check、email draft、memory、trace 和 eval。
