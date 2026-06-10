@@ -7,6 +7,96 @@
 
 ---
 
+## Agent Workbench V2 / AI Presales Agent Workbench
+
+本项目在原有 RAG-based AI Pre-sales Knowledge Assistant 基础上，新增了一个轻量级、可运行、可测试、可追踪的 **AI Pre-sales Agent Workbench**。V1 目标不是堆复杂框架，而是把售前问答中的关键工程能力串成完整 workflow：planning、tool execution、retrieval、risk review、critic grounding check、email draft、memory、trace 和 eval。
+
+### 架构说明
+
+```text
+User Question
+-> Memory Manager
+-> Planner Agent
+-> Safe Executor
+-> Retrieval Agent
+-> raw answer
+-> Risk Review Agent
+-> Critic Agent
+-> final answer
+-> Email Agent
+-> Memory Manager
+-> Agent Trace
+```
+
+核心模块：
+
+- `agent_workbench/schemas/agent_schemas.py`：统一 dataclass schema，包括 PlannerOutput、RetrievedSource、RiskDecision、CriticDecision、EmailDraft、MemorySummary、AgentRunState。
+- `agent_workbench/harness/tool_registry.py`：注册允许调用的 tools，避免 agent 任意调用函数。
+- `agent_workbench/harness/safe_executor.py`：统一执行 tools，捕获异常、超时和 fallback。
+- `agent_workbench/harness/output_validator.py`：校验 agent 输出，非法输出会转成安全 fallback。
+- `agent_workbench/agents/retrieval_agent.py`：封装现有 Chroma RAG 检索，按 risk_level 调整 top_k；如果 Chroma import 或运行失败，会 fallback 到本地 Markdown 检索并写入 trace errors。
+- `agent_workbench/agents/risk_review_agent.py`：识别 pricing、SLA、HIPAA、compliance、private deployment、customer case、security、roadmap、legal 等售前风险。
+- `agent_workbench/agents/critic_agent.py`：检查 final/raw answer 中高风险 claim 是否被 retrieved sources 支持；unsupported claim 会触发 revision_required。
+- `agent_workbench/agents/email_agent.py`：生成 follow-up email draft，只生成草稿，不发送。
+- `agent_workbench/agents/memory_manager.py`：实现 short-term memory、session memory、customer profile memory 和 memory compression；unsupported claims 不会进入 confirmed facts。
+- `agent_workbench/harness/agent_orchestrator.py`：串联完整 agent workflow，并写入 JSONL trace。
+
+本阶段刻意不引入 PostgreSQL、Redis、OpenSearch、Airflow、Docker Compose、MCP、LangGraph，保持作品集项目可以本地运行、可以截图、可以讲清楚。
+
+### 运行命令
+
+```bash
+python -m agent_workbench.harness.agent_orchestrator
+```
+
+运行后输入客户问题，例如：
+
+```text
+Can InsightFlow AI support private deployment and HIPAA compliance?
+```
+
+每次运行会写入一行 trace：
+
+```text
+agent_workbench/traces/agent_traces.jsonl
+```
+
+Trace 字段包括 run_id、timestamp、user_question、planner_output、tools_called、retrieved_sources、raw_answer、risk_decision、critic_decision、final_answer、email_draft、memory_summary、human_review_required、latency_ms、errors。
+
+### 评估命令
+
+```bash
+python eval/run_agent_eval.py
+```
+
+评估数据集：
+
+```text
+eval/agent_eval_dataset.csv
+```
+
+覆盖 10 类售前场景：product feature、pricing、SLA、private deployment、HIPAA、customer case、integration、roadmap、security、memory。
+
+输出结果：
+
+```text
+eval/agent_eval_results.csv
+```
+
+评估维度包括 intent_pass、tool_selection_pass、risk_classification_pass、refusal_or_safe_answer_pass、email_draft_pass、memory_retention_pass、overall_pass。
+
+### 面试亮点
+
+- 从单次 RAG QA 升级为多 agent workflow，能解释每一步的职责边界。
+- Safe Executor + Tool Registry 展示了 agentic system 里的 tool governance。
+- Risk Review + Critic 分工清晰：前者判断售前风险，后者检查 grounding 和 unsupported claims。
+- Retrieval Agent 对现有 Chroma RAG 做兼容封装，依赖不可用时 graceful fallback，不影响整体 demo。
+- Agent Trace 使用 JSONL，方便调试、评估、截图和复盘。
+- Memory Manager 明确区分 confirmed facts 与 unsupported claims，避免把未证实内容沉淀为客户记忆。
+- Eval 脚本跑完整 workflow，而不是只测单点函数，更接近真实 AI application engineering。
+
+---
+
 ## 1. Project Overview / 项目概览
 
 **AI Pre-sales Copilot** is a portfolio project for B2B SaaS pre-sales, AI Solutions, and LLM application engineering scenarios.

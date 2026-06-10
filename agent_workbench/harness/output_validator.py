@@ -1,0 +1,181 @@
+"""Output validators and safe fallbacks for Agent Workbench V1."""
+
+from __future__ import annotations
+
+from typing import Any
+
+from agent_workbench.schemas.agent_schemas import (
+    ALLOWED_INTENTS,
+    ALLOWED_RISK_LEVELS,
+    CriticDecision,
+    EmailDraft,
+    MemorySummary,
+    PlannerOutput,
+    RiskDecision,
+    validate_grounding_status,
+    validate_intent,
+    validate_risk_level,
+)
+
+
+def _as_bool(value: Any, default: bool = False) -> bool:
+    if isinstance(value, bool):
+        return value
+    return default
+
+
+def _as_list(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return []
+
+
+def _as_str(value: Any, default: str = "") -> str:
+    if isinstance(value, str):
+        return value
+    if value is None:
+        return default
+    return str(value)
+
+
+def _as_dict(value: Any) -> dict[str, Any]:
+    if isinstance(value, dict):
+        return value
+    return {}
+
+
+def validate_planner_output(output: Any) -> PlannerOutput:
+    """Return a valid PlannerOutput, using retrieval-first fallback when invalid."""
+    fallback = PlannerOutput(
+        intent="unknown",
+        risk_level="medium",
+        required_tools=["search_docs", "review_risk", "critic_check"],
+        requires_retrieval=True,
+        requires_email_draft=False,
+        requires_human_review=True,
+        planning_reason="Planner output was invalid; safe fallback requires retrieval and review.",
+    )
+
+    data = output.to_dict() if isinstance(output, PlannerOutput) else _as_dict(output)
+    if not data:
+        return fallback
+
+    intent = validate_intent(_as_str(data.get("intent"), "unknown"))
+    risk_level = validate_risk_level(_as_str(data.get("risk_level"), "medium"))
+    required_tools = [
+        _as_str(tool)
+        for tool in _as_list(data.get("required_tools"))
+        if _as_str(tool)
+    ]
+    if not required_tools:
+        required_tools = fallback.required_tools
+
+    return PlannerOutput(
+        intent=intent if intent in ALLOWED_INTENTS else "unknown",
+        risk_level=risk_level if risk_level in ALLOWED_RISK_LEVELS else "medium",
+        required_tools=required_tools,
+        requires_retrieval=_as_bool(data.get("requires_retrieval"), True),
+        requires_email_draft=_as_bool(data.get("requires_email_draft"), False),
+        requires_human_review=_as_bool(data.get("requires_human_review"), risk_level == "high"),
+        planning_reason=_as_str(data.get("planning_reason"), fallback.planning_reason),
+    )
+
+
+def validate_risk_decision(output: Any) -> RiskDecision:
+    """Return a valid RiskDecision, requiring review when input is invalid."""
+    fallback = RiskDecision(
+        risk_level="medium",
+        risk_categories=["validator_fallback"],
+        requires_human_review=True,
+        safe_response_guidance="Risk decision was invalid; use cautious language and request human review.",
+    )
+
+    data = output.to_dict() if isinstance(output, RiskDecision) else _as_dict(output)
+    if not data:
+        return fallback
+
+    risk_level = validate_risk_level(_as_str(data.get("risk_level"), "medium"))
+    categories = [
+        _as_str(category)
+        for category in _as_list(data.get("risk_categories"))
+        if _as_str(category)
+    ]
+    return RiskDecision(
+        risk_level=risk_level,
+        risk_categories=categories,
+        requires_human_review=_as_bool(data.get("requires_human_review"), risk_level == "high"),
+        safe_response_guidance=_as_str(data.get("safe_response_guidance"), fallback.safe_response_guidance),
+    )
+
+
+def validate_critic_decision(output: Any) -> CriticDecision:
+    """Return a valid CriticDecision, defaulting to revision required."""
+    fallback = CriticDecision(
+        grounding_status="uncertain",
+        unsupported_claims=[],
+        revision_required=True,
+        critic_note="Critic output was invalid; answer should be revised or reviewed.",
+    )
+
+    data = output.to_dict() if isinstance(output, CriticDecision) else _as_dict(output)
+    if not data:
+        return fallback
+
+    status = validate_grounding_status(_as_str(data.get("grounding_status"), "uncertain"))
+    unsupported_claims = [
+        _as_str(claim)
+        for claim in _as_list(data.get("unsupported_claims"))
+        if _as_str(claim)
+    ]
+    return CriticDecision(
+        grounding_status=status,
+        unsupported_claims=unsupported_claims,
+        revision_required=_as_bool(data.get("revision_required"), status in {"unsupported", "uncertain"}),
+        critic_note=_as_str(data.get("critic_note"), fallback.critic_note),
+    )
+
+
+def validate_email_draft(output: Any) -> EmailDraft:
+    """Return a valid EmailDraft. Invalid output becomes an empty draft."""
+    data = output.to_dict() if isinstance(output, EmailDraft) else _as_dict(output)
+    if not data:
+        return EmailDraft()
+
+    return EmailDraft(
+        subject=_as_str(data.get("subject")),
+        body=_as_str(data.get("body")),
+    )
+
+
+def validate_memory_summary(output: Any) -> MemorySummary:
+    """Return a valid MemorySummary with conservative empty defaults."""
+    data = output.to_dict() if isinstance(output, MemorySummary) else _as_dict(output)
+    if not data:
+        return MemorySummary(summary="Memory output was invalid; no confirmed facts were stored.")
+
+    return MemorySummary(
+        customer_profile=_as_dict(data.get("customer_profile")),
+        confirmed_facts=[
+            _as_str(fact)
+            for fact in _as_list(data.get("confirmed_facts"))
+            if _as_str(fact)
+        ],
+        risk_concerns=[
+            _as_str(item)
+            for item in _as_list(data.get("risk_concerns"))
+            if _as_str(item)
+        ],
+        open_questions=[
+            _as_str(item)
+            for item in _as_list(data.get("open_questions"))
+            if _as_str(item)
+        ],
+        next_actions=[
+            _as_str(item)
+            for item in _as_list(data.get("next_actions"))
+            if _as_str(item)
+        ],
+        summary=_as_str(data.get("summary")),
+    )
