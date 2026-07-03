@@ -1,4 +1,4 @@
-import html
+﻿import html
 import json
 import re
 import sys
@@ -21,7 +21,7 @@ from trace_logger import log_user_feedback
 
 st.set_page_config(
     page_title="AI Pre-sales Copilot",
-    page_icon="🤖",
+    page_icon="馃",
     layout="wide",
 )
 
@@ -158,6 +158,32 @@ def initialize_session_state() -> None:
         st.session_state.last_agent_run = None
 
 
+def get_agent_session_context():
+    """
+    Return a browser-session-scoped Agent Workbench SessionContext.
+
+    Streamlit keeps session_state isolated per browser session, so this avoids
+    cross-user memory sharing while preserving memory across clicks in one demo.
+    """
+
+    from agent_workbench.agents.session_context import SessionContext
+
+    if "agent_session_context" not in st.session_state:
+        st.session_state.agent_session_context = SessionContext()
+    return st.session_state.agent_session_context
+
+
+def get_agent_customer_profile() -> dict:
+    """
+    Read the current customer profile from the session-scoped SessionContext.
+    """
+
+    session_context = get_agent_session_context()
+    state = getattr(session_context, "state", None)
+    profile = getattr(state, "customer_profile", {}) if state is not None else {}
+    return dict(profile or {})
+
+
 def extract_section(markdown_text: str, heading: str) -> str:
     """
     Extract content under a Markdown level-2 heading.
@@ -270,6 +296,32 @@ def render_key_value_json(title: str, value: Any, expanded: bool = True) -> None
         st.code(compact_json(value), language="json")
 
 
+def append_email_trace_event(to: str, status: str, error: str = "") -> None:
+    """
+    Append a minimal email send event to the existing Agent Workbench trace log.
+    """
+
+    try:
+        TRACE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        event = {
+            "event": "email_sent",
+            "to": to,
+            "status": status,
+            "error": error,
+        }
+        with TRACE_FILE.open("a", encoding="utf-8") as file:
+            file.write(json.dumps(event, ensure_ascii=False) + "\n")
+    except OSError:
+        return
+
+
+def clear_gmail_send_state() -> None:
+    """Clear Streamlit widget state for the manual Gmail send area."""
+
+    st.session_state.gmail_recipient = ""
+    st.session_state.gmail_subject = "Re: Your Inquiry"
+
+
 def render_sources_table(sources: list[dict[str, Any]]) -> None:
     if not sources:
         st.info("No retrieved sources were returned for this run.")
@@ -354,6 +406,68 @@ def render_agent_workbench_state(state: dict[str, Any]) -> None:
     render_sources_table(state.get("retrieved_sources", []) or [])
 
 
+def render_gmail_send_section(state: dict[str, Any]) -> None:
+    """
+    Render manual Gmail send controls under the generated email draft.
+    """
+
+    email_draft = state.get("email_draft", {}) or {}
+    draft_body = str(email_draft.get("body", "") or "")
+    draft_subject = str(email_draft.get("subject", "") or "Re: Your Inquiry")
+
+    if not draft_body.strip():
+        return
+
+    st.markdown('<div class="section-title">Manual Gmail Send</div>', unsafe_allow_html=True)
+
+    try:
+        from agent_workbench.tools import gmail_sender
+    except Exception as exc:
+        st.info(f"Gmail sender unavailable, draft only. {type(exc).__name__}: {exc}")
+        return
+
+    if not gmail_sender.is_gmail_configured():
+        st.info("Gmail未配置，仅展示草稿")
+        return
+
+    if "gmail_subject" not in st.session_state:
+        st.session_state.gmail_subject = draft_subject or "Re: Your Inquiry"
+    if "gmail_recipient" not in st.session_state:
+        st.session_state.gmail_recipient = ""
+
+    recipient = st.text_input("收件人邮箱", key="gmail_recipient")
+    subject = st.text_input("邮件主题", key="gmail_subject")
+
+    send_col, cancel_col = st.columns([1, 1])
+    with send_col:
+        send_clicked = st.button("确认发送", key="gmail_confirm_send", use_container_width=True)
+    with cancel_col:
+        st.button("取消", key="gmail_cancel_send", use_container_width=True, on_click=clear_gmail_send_state)
+
+    if not send_clicked:
+        return
+
+    if not recipient.strip():
+        st.error("收件人邮箱不能为空。")
+        return
+
+    try:
+        result = gmail_sender.send_email(
+            to=recipient,
+            subject=subject or draft_subject or "Re: Your Inquiry",
+            body=draft_body,
+            token_path="token.json",
+        )
+        append_email_trace_event(to=recipient, status="success", error="")
+        st.success(f"邮件已发送至 {recipient}")
+        with st.expander("Gmail API Result", expanded=False):
+            st.json(result)
+    except Exception as exc:
+        error = str(exc)
+        append_email_trace_event(to=recipient, status="failed", error=error)
+        st.error(error)
+
+
 def render_agent_workbench_tab() -> None:
     st.markdown(
         """
@@ -361,6 +475,25 @@ def render_agent_workbench_tab() -> None:
         Critic, Answer, Email Draft, Memory Compression, Tool Trace.
         """
     )
+
+    session_context = get_agent_session_context()
+    profile = get_agent_customer_profile()
+
+    memory_col1, memory_col2 = st.columns([3, 1])
+    with memory_col1:
+        with st.expander("Session Customer Profile", expanded=True):
+            if profile:
+                st.json(profile)
+            else:
+                st.info("No customer profile stored in this session yet.")
+    with memory_col2:
+        if st.button("Clear Memory", use_container_width=True):
+            from agent_workbench.agents.session_context import SessionContext
+
+            st.session_state.agent_session_context = SessionContext()
+            st.session_state.last_agent_run = None
+            st.success("Memory cleared for this browser session.")
+            session_context = st.session_state.agent_session_context
 
     question = st.text_area(
         "Agent Workbench question",
@@ -381,7 +514,10 @@ def render_agent_workbench_tab() -> None:
             from agent_workbench.harness.agent_orchestrator import run_agent
 
             with st.spinner("Running Agent Workbench workflow..."):
-                state = run_agent(question.strip() or "Can InsightFlow support private deployment and SLA?")
+                state = run_agent(
+                    user_question=question.strip() or "Can InsightFlow support private deployment and SLA?",
+                    session_context=session_context,
+                )
             st.session_state.last_agent_run = state.to_dict()
         except Exception as exc:
             st.error(f"Agent Workbench failed safely: {type(exc).__name__}: {exc}")
@@ -392,13 +528,23 @@ def render_agent_workbench_tab() -> None:
                 "human_review_required": True,
             }
 
+    if run_clicked:
+        updated_profile = get_agent_customer_profile()
+        with st.expander("Updated Session Customer Profile", expanded=True):
+            if updated_profile:
+                st.json(updated_profile)
+            else:
+                st.info("No customer profile stored in this session yet.")
+
     if st.session_state.last_agent_run:
         render_agent_workbench_state(st.session_state.last_agent_run)
+        render_gmail_send_section(st.session_state.last_agent_run)
     else:
         latest = read_latest_trace()
         if latest:
             st.info("Showing latest saved trace. Click Run Agent to generate a fresh run.")
             render_agent_workbench_state(latest)
+            render_gmail_send_section(latest)
 
 
 def render_trace_viewer_tab() -> None:
@@ -518,7 +664,7 @@ def render_header() -> None:
 
     st.markdown(
         """
-        <div class="main-title">🤖 AI Pre-sales Copilot</div>
+        <div class="main-title">馃 AI Pre-sales Copilot</div>
         <div class="subtitle">RAG + LLM Client + Evaluation + Guardrails + Lightweight Tracing</div>
         """,
         unsafe_allow_html=True,
@@ -630,10 +776,10 @@ def render_feedback_section() -> None:
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        thumbs_up = st.button("👍 Helpful", use_container_width=True)
+        thumbs_up = st.button("馃憤 Helpful", use_container_width=True)
 
     with col2:
-        thumbs_down = st.button("👎 Not helpful", use_container_width=True)
+        thumbs_down = st.button("馃憥 Not helpful", use_container_width=True)
 
     comment = st.text_input(
         "Optional comment",
@@ -713,3 +859,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

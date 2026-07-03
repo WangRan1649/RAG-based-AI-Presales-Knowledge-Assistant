@@ -4,3 +4,5 @@ chromadb
 python-dotenv
 openai
 streamlit
+google-auth-oauthlib>=1.0.0
+google-api-python-client>=2.0.0

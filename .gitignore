@@ -6,3 +6,5 @@ vector_store/
 outputs/
 logs/*.jsonl
 logs/*.csv
+credentials.json
+token.json
