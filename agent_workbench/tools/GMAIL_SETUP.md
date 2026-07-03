@@ -47,3 +47,24 @@ Future sends reuse `token.json` and should not require reauthorization unless th
 
 Do not commit `token.json` to Git.
 
+## 4. Local Proxy for Gmail API Access
+
+If your network requires a local proxy, set the proxy variables in the same CMD session before starting Streamlit:
+
+```cmd
+set HTTP_PROXY=http://127.0.0.1:7891
+set HTTPS_PROXY=http://127.0.0.1:7891
+set ALL_PROXY=http://127.0.0.1:7891
+```
+
+Then start Streamlit from that same CMD session:
+
+```cmd
+streamlit run app_streamlit.py
+```
+
+You can check the Gmail sender import and proxy parsing without sending email:
+
+```cmd
+python scripts\test_gmail_proxy_config.py
+```
