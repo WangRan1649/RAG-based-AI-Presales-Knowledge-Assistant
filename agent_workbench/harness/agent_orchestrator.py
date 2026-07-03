@@ -1,4 +1,4 @@
-"""End-to-end Agent Workbench V2 workflow orchestrator."""
+﻿"""End-to-end Agent Workbench V2 workflow orchestrator."""
 
 from __future__ import annotations
 
@@ -8,13 +8,13 @@ import time
 from pathlib import Path
 from typing import Any
 
-from agent_workbench.agents.answer_agent import AnswerAgent
-from agent_workbench.agents.critic_agent import CriticAgent
-from agent_workbench.agents.email_agent import EmailAgent
-from agent_workbench.agents.memory_manager import MemoryManager
-from agent_workbench.agents.planner_agent import PlannerAgent
-from agent_workbench.agents.retrieval_agent import RetrievalAgent, is_command_like_query, top_k_for_risk
-from agent_workbench.agents.risk_review_agent import RiskReviewAgent
+from agent_workbench.agents.answer_generator import AnswerGenerator
+from agent_workbench.agents.grounding_checker import GroundingChecker
+from agent_workbench.agents.email_composer import EmailComposer
+from agent_workbench.agents.session_context import SessionContext
+from agent_workbench.agents.intent_classifier import IntentClassifier
+from agent_workbench.agents.document_retriever import DocumentRetriever, is_command_like_query, top_k_for_risk
+from agent_workbench.agents.risk_filter import RiskFilter
 from agent_workbench.harness.output_validator import (
     validate_critic_decision,
     validate_email_draft,
@@ -73,18 +73,18 @@ def _safe_command_answer(user_question: str) -> str:
     )
 
 
-class AgentOrchestrator:
+class WorkflowOrchestrator:
     """Run the full Agent Workbench V2 workflow."""
 
-    def __init__(self, memory_manager: MemoryManager | None = None, enable_trace: bool = True) -> None:
-        self.memory_manager = memory_manager or MemoryManager()
+    def __init__(self, session_context: SessionContext | None = None, enable_trace: bool = True) -> None:
+        self.session_context = session_context or SessionContext()
         self.enable_trace = enable_trace
-        self.planner = PlannerAgent()
-        self.retrieval = RetrievalAgent()
-        self.risk_review = RiskReviewAgent()
-        self.critic = CriticAgent()
-        self.answer = AnswerAgent()
-        self.email = EmailAgent()
+        self.planner = IntentClassifier()
+        self.retrieval = DocumentRetriever()
+        self.risk_review = RiskFilter()
+        self.critic = GroundingChecker()
+        self.answer = AnswerGenerator()
+        self.email = EmailComposer()
         self.executor = SafeExecutor()
 
     def run(self, user_question: str, enable_trace: bool | None = None) -> AgentRunState:
@@ -109,7 +109,7 @@ class AgentOrchestrator:
                     revision_required=False,
                     critic_note="Command-like input was safely rejected before retrieval.",
                 )
-                state.memory_summary = self.memory_manager.compress_memory(
+                state.memory_summary = self.session_context.compress_memory(
                     user_question=user_question,
                     final_answer=state.final_answer,
                     risk_decision=state.risk_decision,
@@ -117,7 +117,7 @@ class AgentOrchestrator:
                 )
                 return state
 
-            state.memory_loaded = self.memory_manager.load_context()
+            state.memory_loaded = self.session_context.load_context()
 
             state.planner_output = validate_planner_output(self.planner.run(user_question))
             if state.planner_output.requires_human_review:
@@ -217,7 +217,7 @@ class AgentOrchestrator:
 
             memory_result = self.executor.execute(
                 tool_name="compress_memory",
-                tool_function=self.memory_manager.run,
+                tool_function=self.session_context.run,
                 tool_input={
                     "user_question": user_question,
                     "final_answer": state.final_answer,
@@ -266,10 +266,10 @@ def write_trace(state: AgentRunState) -> None:
 
 def run_agent(
     user_question: str = DEFAULT_DEMO_QUESTION,
-    memory_manager: MemoryManager | None = None,
+    session_context: SessionContext | None = None,
     enable_trace: bool = True,
 ) -> AgentRunState:
-    return AgentOrchestrator(memory_manager=memory_manager, enable_trace=enable_trace).run(user_question=user_question)
+    return WorkflowOrchestrator(session_context=session_context, enable_trace=enable_trace).run(user_question=user_question)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -292,3 +292,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

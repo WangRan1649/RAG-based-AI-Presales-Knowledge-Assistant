@@ -1,4 +1,4 @@
-"""Answer Agent for grounded draft and final answer generation."""
+﻿"""Answer Agent for grounded draft and final answer generation."""
 
 from __future__ import annotations
 
@@ -106,8 +106,8 @@ Original internal draft:
 {raw_answer}"""
 
 
-class AnswerAgent:
-    name = "answer_agent"
+class AnswerGenerator:
+    name = "answer_generator"
 
     def run(self, tool_input: dict[str, Any]) -> AnswerOutput:
         source_items = tool_input.get("retrieved_sources", [])
@@ -139,3 +139,4 @@ class AnswerAgent:
             risk_decision=risk_decision,
         )
         return AnswerOutput(raw_answer=raw_answer, final_answer=final_answer)
+

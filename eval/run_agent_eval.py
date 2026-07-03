@@ -1,4 +1,4 @@
-"""Run Agent Workbench V2 evaluation cases and write a Markdown report."""
+﻿"""Run Agent Workbench V2 evaluation cases and write a Markdown report."""
 
 from __future__ import annotations
 
@@ -12,8 +12,8 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from agent_workbench.agents.memory_manager import MemoryManager
-from agent_workbench.harness.agent_orchestrator import AgentOrchestrator
+from agent_workbench.agents.session_context import SessionContext
+from agent_workbench.harness.agent_orchestrator import WorkflowOrchestrator
 
 
 DATASET_FILE = PROJECT_ROOT / "eval" / "agent_eval_dataset.csv"
@@ -71,7 +71,7 @@ def _memory_signal_present(state_dict: dict) -> bool:
     )
 
 
-def evaluate_row(row: dict[str, str], orchestrator: AgentOrchestrator) -> dict[str, str]:
+def evaluate_row(row: dict[str, str], orchestrator: WorkflowOrchestrator) -> dict[str, str]:
     state = orchestrator.run(row["question"], enable_trace=False)
     data = state.to_dict()
 
@@ -174,8 +174,8 @@ def write_report(results: list[dict[str, str]]) -> None:
 ## Fallback 行为
 
 - fallback case count：{len(fallback_cases)}
-- 当前轻量环境如果没有 `chromadb`，Retrieval Agent 会记录 `Chroma retrieval unavailable`，然后自动 fallback 到 `knowledge_base/*.md` 的 Markdown retrieval。
-- Markdown fallback 是预期降级路径，不代表 Agent workflow 失败；它会继续保留 retrieved_sources、risk_decision、critic_decision、email_draft、memory_summary 和 errors。
+- 当前轻量环境如果没有 `chromadb`，DocumentRetriever 会记录 `Chroma retrieval unavailable`，然后自动 fallback 到 `knowledge_base/*.md` 的 Markdown retrieval。
+- Markdown fallback 是预期降级路径，不代表 workflow 失败；它会继续保留 retrieved_sources、risk_decision、critic_decision、email_draft、memory_summary 和 errors。
 
 ## 失败案例
 
@@ -183,13 +183,13 @@ def write_report(results: list[dict[str, str]]) -> None:
 
 ## 面试解释话术
 
-- 这个 eval 不是宣称生产级鲁棒性，而是验证作品集核心 workflow：Planner、Safe Executor、Retrieval fallback、Risk Review、Critic、Answer、Email Draft、Memory 和 Trace。
+- 这个 eval 不是宣称生产级鲁棒性，而是验证作品集核心 workflow：IntentClassifier、Safe Executor、DocumentRetriever、RiskFilter、GroundingChecker、AnswerGenerator、EmailComposer、SessionContext 和 Trace。
 - `22/22 overall_pass` 表示当前 22 条售前样例都通过预设检查，覆盖 intent、tool selection、risk classification、safe answer、email draft 和 memory retention。
-- Chroma unavailable 时仍能通过，是因为项目刻意设计了 Markdown fallback，保证本地 demo 和面试环境不会因为缺少可选依赖而崩溃。
+- Chroma unavailable 时仍能通过，是因为项目设计了 Markdown fallback，保证本地 demo 和面试环境不会因为缺少可选依赖而崩溃。
 
 ## 说明
 
-本评估运行完整 Agent workflow，包括 Planner、Safe Executor、Retrieval、Risk Review、Critic、Answer、Email、Memory。当前环境如果没有 chromadb，Retrieval Agent 会优先记录 Chroma 不可用，然后自动 fallback 到 Markdown 检索；这属于预期行为，不会导致 workflow 崩溃。
+本评估运行完整 workflow。当前环境如果没有 chromadb，DocumentRetriever 会优先记录 Chroma 不可用，然后自动 fallback 到 Markdown 检索；这属于预期行为，不会导致 workflow 崩溃。
 """
 
     REPORT_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -197,8 +197,8 @@ def write_report(results: list[dict[str, str]]) -> None:
 
 
 def main() -> None:
-    memory_manager = MemoryManager()
-    orchestrator = AgentOrchestrator(memory_manager=memory_manager, enable_trace=False)
+    session_context = SessionContext()
+    orchestrator = WorkflowOrchestrator(session_context=session_context, enable_trace=False)
 
     with DATASET_FILE.open("r", encoding="utf-8", newline="") as file:
         rows = list(csv.DictReader(file))
@@ -222,3 +222,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

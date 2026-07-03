@@ -1,4 +1,4 @@
-"""Email Agent that creates draft-only follow-up emails."""
+﻿"""Email Agent that creates draft-only follow-up emails."""
 
 from __future__ import annotations
 
@@ -72,8 +72,8 @@ Draft only - not sent automatically."""
     return EmailDraft(subject="Follow-up on your InsightFlow AI question", body=body)
 
 
-class EmailAgent:
-    name = "email_agent"
+class EmailComposer:
+    name = "email_composer"
 
     def run(self, tool_input: dict) -> EmailDraft:
         source_items = tool_input.get("retrieved_sources", [])
@@ -100,3 +100,4 @@ class EmailAgent:
             risk_decision=risk_decision,
             retrieved_sources=sources,
         )
+

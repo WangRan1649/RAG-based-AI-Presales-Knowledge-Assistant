@@ -1,4 +1,4 @@
-"""Rule-based Risk Review Agent for pre-sales questions."""
+﻿"""Rule-based Risk Review Agent for pre-sales questions."""
 
 from __future__ import annotations
 
@@ -79,11 +79,12 @@ def review_risk(user_question: str, raw_answer: str = "") -> RiskDecision:
     )
 
 
-class RiskReviewAgent:
-    name = "risk_review_agent"
+class RiskFilter:
+    name = "risk_filter"
 
     def run(self, tool_input: dict) -> RiskDecision:
         return review_risk(
             user_question=str(tool_input.get("user_question", "")),
             raw_answer=str(tool_input.get("raw_answer", "")),
         )
+

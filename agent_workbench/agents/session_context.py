@@ -1,4 +1,4 @@
-"""Lightweight memory manager for Agent Workbench V2."""
+﻿"""Lightweight memory manager for Agent Workbench V2."""
 
 from __future__ import annotations
 
@@ -24,8 +24,8 @@ def _is_command_like(text: str) -> bool:
     return lowered.startswith(COMMAND_PREFIXES) or lowered.endswith(".py")
 
 
-class MemoryManager:
-    name = "memory_manager"
+class SessionContext:
+    name = "session_context"
 
     def __init__(self) -> None:
         self.state = MemoryState()
@@ -122,3 +122,4 @@ class MemoryManager:
             risk_decision=risk_decision,
             critic_decision=critic_decision,
         )
+

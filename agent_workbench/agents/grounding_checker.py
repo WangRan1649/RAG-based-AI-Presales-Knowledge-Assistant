@@ -1,4 +1,4 @@
-"""Critic Agent that checks risky claims against retrieved sources."""
+﻿"""Critic Agent that checks risky claims against retrieved sources."""
 
 from __future__ import annotations
 
@@ -110,8 +110,8 @@ def critic_check(
     )
 
 
-class CriticAgent:
-    name = "critic_agent"
+class GroundingChecker:
+    name = "grounding_checker"
 
     def run(self, tool_input: dict) -> CriticDecision:
         source_items = tool_input.get("retrieved_sources", [])
@@ -138,3 +138,4 @@ class CriticAgent:
             retrieved_sources=sources,
             risk_decision=risk_decision,
         )
+

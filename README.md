@@ -10,16 +10,16 @@ Agent Workbench V3.0 is the portfolio-oriented version of this project. It keeps
 
 ```text
 User Question
--> Planner Agent
+-> IntentClassifier
 -> Safe Executor + Tool Registry
--> Retrieval Agent
+-> DocumentRetriever
    -> Chroma retrieval when available
    -> Markdown fallback when Chroma is unavailable
--> Risk Review Agent
--> Answer Agent
--> Critic Agent / grounding check
--> Email Agent draft only
--> Memory Manager / compression
+-> RiskFilter
+-> AnswerGenerator
+-> GroundingChecker
+-> EmailComposer draft only
+-> SessionContext / compression
 -> Agent Trace JSONL
 -> Agent Eval
 -> Streamlit Agent Workbench V3 + Trace Viewer
@@ -96,7 +96,7 @@ Latest V2 Agent Eval summary:
 ### Portfolio Highlights
 
 - RAG-based pre-sales knowledge assistant with source-grounded answers.
-- Multi-Agent Workflow: Planner, Retrieval, Risk Review, Critic, Answer, Email Draft, Memory Manager.
+- Workflow modules: IntentClassifier, DocumentRetriever, RiskFilter, AnswerGenerator, GroundingChecker, EmailComposer, SessionContext.
 - Tool Registry and Safe Executor for lightweight tool governance.
 - Risk Review for pricing, SLA, compliance, private deployment, roadmap, and customer-reference questions.
 - Critic / grounding check to reduce unsupported claims.
@@ -149,7 +149,7 @@ python scripts/run_agent_workbench_smoke_test.py
 
 ### V2.0 工程增强点
 
-- 新增 `AnswerAgent`：输入 user_question、retrieved_sources、risk_decision，输出 raw_answer 和 final_answer，并避免 unsupported commitment。
+- 新增 `AnswerGenerator`：输入 user_question、retrieved_sources、risk_decision，输出 raw_answer 和 final_answer，并避免 unsupported commitment。
 - Orchestrator CLI 支持 `--question`、`--no-trace` 和默认 demo question；命令式输入不会被当成售前问题回答。
 - Retrieval Agent 保持 Chroma 优先、Markdown fallback；没有 chromadb 时不会崩溃，会记录 `retrieval_mode`、`original_query`、`rewritten_query`、`retrieval_attempts`。
 - Markdown fallback 支持 query rewrite：当 top sources 分数过低或无结果时，自动扩展查询再检索一次。
@@ -186,7 +186,7 @@ docs/agent_eval_report_v2.md
 ### V2.0 面试亮点
 
 - 展示从 RAG QA 到 agentic workflow 的演进，同时保持工程克制。
-- 能解释 Planner、Retrieval、Risk Review、Critic、Answer、Email、Memory 的职责边界。
+- 能解释 IntentClassifier、DocumentRetriever、RiskFilter、GroundingChecker、AnswerGenerator、EmailComposer、SessionContext 的职责边界。
 - 有 Tool Registry、Safe Executor、Output Validator，体现 agent tool governance 和 graceful fallback。
 - 有 trace、eval、report、smoke test，便于现场 demo 和工程复盘。
 - 明确把 unsupported claims 拦在最终答案、邮件草稿和 memory confirmed facts 之外。
@@ -220,11 +220,11 @@ User Question
 - `agent_workbench/harness/tool_registry.py`：注册允许调用的 tools，避免 agent 任意调用函数。
 - `agent_workbench/harness/safe_executor.py`：统一执行 tools，捕获异常、超时和 fallback。
 - `agent_workbench/harness/output_validator.py`：校验 agent 输出，非法输出会转成安全 fallback。
-- `agent_workbench/agents/retrieval_agent.py`：封装现有 Chroma RAG 检索，按 risk_level 调整 top_k；如果 Chroma import 或运行失败，会 fallback 到本地 Markdown 检索并写入 trace errors。
-- `agent_workbench/agents/risk_review_agent.py`：识别 pricing、SLA、HIPAA、compliance、private deployment、customer case、security、roadmap、legal 等售前风险。
-- `agent_workbench/agents/critic_agent.py`：检查 final/raw answer 中高风险 claim 是否被 retrieved sources 支持；unsupported claim 会触发 revision_required。
-- `agent_workbench/agents/email_agent.py`：生成 follow-up email draft，只生成草稿，不发送。
-- `agent_workbench/agents/memory_manager.py`：实现 short-term memory、session memory、customer profile memory 和 memory compression；unsupported claims 不会进入 confirmed facts。
+- `agent_workbench/agents/document_retriever.py`：封装现有 Chroma RAG 检索，按 risk_level 调整 top_k；如果 Chroma import 或运行失败，会 fallback 到本地 Markdown 检索并写入 trace errors。
+- `agent_workbench/agents/risk_filter.py`：识别 pricing、SLA、HIPAA、compliance、private deployment、customer case、security、roadmap、legal 等售前风险。
+- `agent_workbench/agents/grounding_checker.py`：检查 final/raw answer 中高风险 claim 是否被 retrieved sources 支持；unsupported claim 会触发 revision_required。
+- `agent_workbench/agents/email_composer.py`：生成 follow-up email draft，只生成草稿；Streamlit 中可人工确认后通过 Gmail 发送。
+- `agent_workbench/agents/session_context.py`：实现 short-term memory、session memory、customer profile memory 和 memory compression；unsupported claims 不会进入 confirmed facts。
 - `agent_workbench/harness/agent_orchestrator.py`：串联完整 agent workflow，并写入 JSONL trace。
 
 本阶段刻意不引入 PostgreSQL、Redis、OpenSearch、Airflow、Docker Compose、MCP、LangGraph，保持作品集项目可以本地运行、可以截图、可以讲清楚。

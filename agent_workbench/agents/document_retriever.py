@@ -1,4 +1,4 @@
-"""Retrieval Agent wrapping the existing Chroma RAG search."""
+﻿"""Retrieval Agent wrapping the existing Chroma RAG search."""
 
 from __future__ import annotations
 
@@ -174,8 +174,8 @@ def _search_markdown_fallback(query: str, top_k: int) -> list[RetrievedSource]:
     return sources
 
 
-class RetrievalAgent:
-    name = "retrieval_agent"
+class DocumentRetriever:
+    name = "document_retriever"
 
     def __init__(self) -> None:
         self.last_errors: list[str] = []
@@ -269,4 +269,5 @@ class RetrievalAgent:
 
 
 def search_docs(query: str, risk_level: str = "medium", top_k: int | None = None) -> list[RetrievedSource]:
-    return RetrievalAgent().search_docs(query=query, risk_level=risk_level, top_k=top_k)
+    return DocumentRetriever().search_docs(query=query, risk_level=risk_level, top_k=top_k)
+
