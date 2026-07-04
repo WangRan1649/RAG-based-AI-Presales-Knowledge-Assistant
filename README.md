@@ -2,13 +2,13 @@
 
 ## Streamlit Sales View / Developer View
 
-The Streamlit app now separates the pre-sales experience from engineering diagnostics:
+Streamlit app 现在将售前演示界面和工程诊断信息分开：
 
-- **Sales View is the default.** It shows the customer question, a customer-ready answer, review warning, readable source summary, customer email draft, and manual Gmail send area.
-- **Developer View is optional.** Enable `显示工程技术细节` in the sidebar to inspect planner output, risk decision, grounding checks, memory summary, tools called, trace preview, errors, fallback notes, and full retrieved source metadata.
-- **Trace Viewer is gated behind Developer View.** With engineering details off, the Trace Viewer tab only shows a short instruction.
-- **Customer email drafts do not include internal debug details.** The email body avoids planner/risk/critic JSON, chunk ids, source file paths, similarity scores, trace previews, memory summaries, and internal draft text.
-- **Gmail sending remains manual.** The sales user must review/edit the recipient, subject, and email body, then click the confirm-send button. The workflow never sends email automatically and eval does not depend on Gmail.
+- **Sales View 默认开启。** 页面优先展示“客户问题”“客户可读回答”“参考资料”和“人工确认发送邮件”，适合截图、作品集和面试演示。
+- **Developer View 可选开启。** 在侧边栏打开 `显示工程技术细节` 后，可以查看 planner output、risk decision、critic decision、memory summary、tools called、trace preview、errors、fallback notes 和完整 retrieved source metadata。
+- **Trace Viewer 只在 Developer View 中开放。** 默认 Sales View 会隐藏 trace 细节，避免售前页面过载。
+- **客户邮件正文不包含内部调试信息。** 邮件正文不会包含 planner/risk/critic JSON、chunk id、source file path、similarity score、trace preview、memory summary 或 internal draft。
+- **Gmail 发送仍然必须人工确认。** 用户需要检查/编辑收件人、主题和正文后，再点击确认发送；workflow 不会自动发送邮件，eval 也不依赖 Gmail。
 
 ## Agent Workbench V3.0 Portfolio Demo
 
