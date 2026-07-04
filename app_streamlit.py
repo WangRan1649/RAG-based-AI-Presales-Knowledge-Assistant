@@ -320,24 +320,92 @@ def clear_gmail_send_state() -> None:
 
     st.session_state.gmail_recipient = ""
     st.session_state.gmail_subject = "Re: Your Inquiry"
+    st.session_state.gmail_body_preview = ""
+    st.session_state.gmail_body_draft_id = ""
 
 
-def render_sources_table(sources: list[dict[str, Any]]) -> None:
+def source_display_name(source: dict[str, Any]) -> str:
+    raw_name = str(source.get("title") or source.get("source_file") or "Product Documentation")
+    stem = Path(raw_name).stem
+    parts = [part for part in re.split(r"[_\-\s]+", stem) if part and not part.isdigit()]
+    if not parts:
+        return "Product Documentation"
+
+    labels = []
+    for part in parts:
+        upper = part.upper()
+        if upper in {"FAQ", "API", "SLA", "HIPAA", "GDPR", "SOC2", "SOC"}:
+            labels.append(upper)
+        else:
+            labels.append(part.capitalize())
+    return " ".join(labels)
+
+
+def should_show_review_warning(state: dict[str, Any]) -> bool:
+    risk_decision = state.get("risk_decision", {}) or {}
+    critic_decision = state.get("critic_decision", {}) or {}
+    risk_level = str(risk_decision.get("risk_level", "")).lower()
+    grounding_status = str(critic_decision.get("grounding_status", "")).lower()
+    return bool(
+        risk_decision.get("requires_human_review")
+        or critic_decision.get("revision_required")
+        or grounding_status in {"uncertain", "unsupported", "failed"}
+        or risk_level == "high"
+        or state.get("human_review_required")
+    )
+
+
+def customer_answer_from_email_body(email_body: str, fallback_answer: str) -> str:
+    """Extract a customer-readable answer from the email body for Sales View."""
+
+    if not email_body.strip():
+        return fallback_answer
+
+    body = email_body
+    if "Source note:" in body:
+        body = body.split("Source note:", 1)[0]
+    if "Best regards," in body:
+        body = body.split("Best regards,", 1)[0]
+
+    lines = []
+    for raw_line in body.splitlines():
+        line = raw_line.strip()
+        if not line or line == "Hi,":
+            continue
+        if line.lower().startswith("thank you for your question"):
+            continue
+        lines.append(line)
+
+    return "\n\n".join(lines).strip() or fallback_answer
+
+
+def render_sources_table(sources: list[dict[str, Any]], show_engineering_details: bool = True) -> None:
     if not sources:
         st.info("No retrieved sources were returned for this run.")
         return
 
     rows = []
-    for source in sources:
-        rows.append(
-            {
-                "source_file": source.get("source_file", ""),
-                "chunk_id": source.get("chunk_id", ""),
-                "chunk_index": source.get("chunk_index", ""),
-                "similarity_score": source.get("similarity_score", ""),
-                "content_preview": source.get("content_preview", ""),
-            }
-        )
+    if show_engineering_details:
+        for source in sources:
+            rows.append(
+                {
+                    "source_file": source.get("source_file", ""),
+                    "chunk_id": source.get("chunk_id", ""),
+                    "chunk_index": source.get("chunk_index", ""),
+                    "similarity_score": source.get("similarity_score", ""),
+                    "content_preview": source.get("content_preview", ""),
+                }
+            )
+    else:
+        seen = set()
+        for source in sources:
+            display_name = source_display_name(source)
+            if display_name in seen:
+                continue
+            seen.add(display_name)
+            rows.append({"Source": display_name})
+            if len(rows) >= 5:
+                break
     st.dataframe(rows, use_container_width=True, hide_index=True)
 
 
@@ -406,6 +474,44 @@ def render_agent_workbench_state(state: dict[str, Any]) -> None:
     render_sources_table(state.get("retrieved_sources", []) or [])
 
 
+def render_sales_agent_workbench_state(state: dict[str, Any]) -> None:
+    """Render a customer-facing sales view without raw workflow internals."""
+
+    st.markdown('<div class="section-title">Customer-ready Answer</div>', unsafe_allow_html=True)
+
+    if should_show_review_warning(state):
+        st.warning(
+            "This answer involves sensitive information or limited source support. "
+            "Please have the pre-sales or solutions owner review it before sending it to the customer."
+        )
+    else:
+        st.success("Review status: ready for sales review.")
+
+    email_draft = state.get("email_draft", {}) or {}
+    draft_body = str(email_draft.get("body", "") or "")
+    customer_answer = customer_answer_from_email_body(
+        email_body=draft_body,
+        fallback_answer=str(state.get("final_answer", "")),
+    )
+
+    render_card("Customer Question", str(state.get("user_question", "")), "card source-card")
+    render_card("Customer-ready Answer", customer_answer, "card answer-card")
+
+    sources = state.get("retrieved_sources", []) or []
+    st.markdown('<div class="section-title">Source Summary</div>', unsafe_allow_html=True)
+    render_sources_table(sources, show_engineering_details=False)
+
+    if draft_body:
+        st.markdown('<div class="section-title">Email Draft to Customer</div>', unsafe_allow_html=True)
+        st.text_area(
+            "Customer-facing draft",
+            value=draft_body,
+            height=260,
+            disabled=True,
+            key=f"sales_email_draft_preview_{state.get('run_id', 'latest')}",
+        )
+
+
 def render_gmail_send_section(state: dict[str, Any]) -> None:
     """
     Render manual Gmail send controls under the generated email draft.
@@ -414,11 +520,33 @@ def render_gmail_send_section(state: dict[str, Any]) -> None:
     email_draft = state.get("email_draft", {}) or {}
     draft_body = str(email_draft.get("body", "") or "")
     draft_subject = str(email_draft.get("subject", "") or "Re: Your Inquiry")
+    internal_review_note = str(email_draft.get("internal_review_note", "") or "")
 
     if not draft_body.strip():
         return
 
     st.markdown('<div class="section-title">Manual Gmail Send</div>', unsafe_allow_html=True)
+
+    if internal_review_note:
+        st.warning(internal_review_note)
+
+    draft_id = str(state.get("run_id") or state.get("timestamp") or "latest")
+    if st.session_state.get("gmail_body_draft_id") != draft_id:
+        st.session_state.gmail_body_preview = draft_body
+        st.session_state.gmail_body_draft_id = draft_id
+
+    if "gmail_subject" not in st.session_state:
+        st.session_state.gmail_subject = draft_subject or "Re: Your Inquiry"
+    if "gmail_recipient" not in st.session_state:
+        st.session_state.gmail_recipient = ""
+
+    recipient = st.text_input("收件人邮箱", key="gmail_recipient")
+    subject = st.text_input("邮件主题", key="gmail_subject")
+    edited_body = st.text_area(
+        "邮件正文（可在发送前编辑）",
+        key="gmail_body_preview",
+        height=320,
+    )
 
     try:
         from agent_workbench.tools import gmail_sender
@@ -429,14 +557,6 @@ def render_gmail_send_section(state: dict[str, Any]) -> None:
     if not gmail_sender.is_gmail_configured():
         st.info("Gmail未配置，仅展示草稿")
         return
-
-    if "gmail_subject" not in st.session_state:
-        st.session_state.gmail_subject = draft_subject or "Re: Your Inquiry"
-    if "gmail_recipient" not in st.session_state:
-        st.session_state.gmail_recipient = ""
-
-    recipient = st.text_input("收件人邮箱", key="gmail_recipient")
-    subject = st.text_input("邮件主题", key="gmail_subject")
 
     send_col, cancel_col = st.columns([1, 1])
     with send_col:
@@ -455,7 +575,7 @@ def render_gmail_send_section(state: dict[str, Any]) -> None:
         result = gmail_sender.send_email(
             to=recipient,
             subject=subject or draft_subject or "Re: Your Inquiry",
-            body=draft_body,
+            body=edited_body,
             token_path="token.json",
         )
         append_email_trace_event(to=recipient, status="success", error="")
@@ -468,35 +588,39 @@ def render_gmail_send_section(state: dict[str, Any]) -> None:
         st.error(error)
 
 
-def render_agent_workbench_tab() -> None:
-    st.markdown(
-        """
-        Run the full Agent Workbench workflow: Planner, Retrieval, Risk Review,
-        Critic, Answer, Email Draft, Memory Compression, Tool Trace.
-        """
-    )
+def render_agent_workbench_tab(show_engineering_details: bool) -> None:
+    if show_engineering_details:
+        st.markdown(
+            """
+            Run the full Agent Workbench workflow: IntentClassifier, DocumentRetriever,
+            RiskFilter, GroundingChecker, AnswerGenerator, EmailComposer, SessionContext.
+            """
+        )
+    else:
+        st.markdown("Generate a source-grounded answer and a customer-ready follow-up email draft.")
 
     session_context = get_agent_session_context()
     profile = get_agent_customer_profile()
 
-    memory_col1, memory_col2 = st.columns([3, 1])
-    with memory_col1:
-        with st.expander("Session Customer Profile", expanded=True):
-            if profile:
-                st.json(profile)
-            else:
-                st.info("No customer profile stored in this session yet.")
-    with memory_col2:
-        if st.button("Clear Memory", use_container_width=True):
-            from agent_workbench.agents.session_context import SessionContext
+    if show_engineering_details:
+        memory_col1, memory_col2 = st.columns([3, 1])
+        with memory_col1:
+            with st.expander("Session Customer Profile", expanded=True):
+                if profile:
+                    st.json(profile)
+                else:
+                    st.info("No customer profile stored in this session yet.")
+        with memory_col2:
+            if st.button("Clear Memory", use_container_width=True):
+                from agent_workbench.agents.session_context import SessionContext
 
-            st.session_state.agent_session_context = SessionContext()
-            st.session_state.last_agent_run = None
-            st.success("Memory cleared for this browser session.")
-            session_context = st.session_state.agent_session_context
+                st.session_state.agent_session_context = SessionContext()
+                st.session_state.last_agent_run = None
+                st.success("Memory cleared for this browser session.")
+                session_context = st.session_state.agent_session_context
 
     question = st.text_area(
-        "Agent Workbench question",
+        "Customer Question",
         value="Can InsightFlow support private deployment and SLA?",
         height=100,
         placeholder="Ask about product features, pricing, SLA, HIPAA, security, integration, roadmap, or customer cases.",
@@ -505,9 +629,12 @@ def render_agent_workbench_tab() -> None:
 
     col1, col2 = st.columns([1, 4])
     with col1:
-        run_clicked = st.button("Run Agent", type="primary", use_container_width=True)
+        run_clicked = st.button("Run Workflow", type="primary", use_container_width=True)
     with col2:
-        st.caption("Each run writes a JSONL trace to agent_workbench/traces/agent_traces.jsonl.")
+        if show_engineering_details:
+            st.caption("Each run writes a JSONL trace to agent_workbench/traces/agent_traces.jsonl.")
+        else:
+            st.caption("The workflow drafts a customer-ready answer and follow-up email for human review.")
 
     if run_clicked:
         try:
@@ -528,7 +655,7 @@ def render_agent_workbench_tab() -> None:
                 "human_review_required": True,
             }
 
-    if run_clicked:
+    if run_clicked and show_engineering_details:
         updated_profile = get_agent_customer_profile()
         with st.expander("Updated Session Customer Profile", expanded=True):
             if updated_profile:
@@ -537,17 +664,27 @@ def render_agent_workbench_tab() -> None:
                 st.info("No customer profile stored in this session yet.")
 
     if st.session_state.last_agent_run:
-        render_agent_workbench_state(st.session_state.last_agent_run)
+        if show_engineering_details:
+            render_agent_workbench_state(st.session_state.last_agent_run)
+        else:
+            render_sales_agent_workbench_state(st.session_state.last_agent_run)
         render_gmail_send_section(st.session_state.last_agent_run)
     else:
-        latest = read_latest_trace()
+        latest = read_latest_trace() if show_engineering_details else None
         if latest:
             st.info("Showing latest saved trace. Click Run Agent to generate a fresh run.")
             render_agent_workbench_state(latest)
             render_gmail_send_section(latest)
 
 
-def render_trace_viewer_tab() -> None:
+def render_trace_viewer_tab(show_engineering_details: bool) -> None:
+    if not show_engineering_details:
+        st.info(
+            "Trace Viewer is available in Developer View. "
+            "Enable engineering details in the sidebar to inspect traces."
+        )
+        return
+
     st.markdown(
         """
         Trace Viewer reads the most recent run from
@@ -616,7 +753,7 @@ def parse_sources(sources_text: str) -> list[dict]:
     return rows
 
 
-def render_sidebar() -> None:
+def render_sidebar() -> bool:
     """
     Render project explanation in the sidebar.
     """
@@ -625,22 +762,25 @@ def render_sidebar() -> None:
         st.title("AI Pre-sales Copilot")
 
         st.markdown(
-            """
-            **Project Positioning**
-
-            A RAG-based AI copilot for B2B SaaS pre-sales scenarios.
-
-            **Core Capabilities**
-
-            - Semantic retrieval with Chroma
-            - Mock/API LLM client
-            - Source-grounded answers
-            - Confidence display
-            - Hallucination guardrails
-            - Lightweight tracing
-            - User feedback logging
-            """
+            "AI workbench for B2B SaaS pre-sales teams to generate "
+            "source-grounded answers and customer-ready email drafts."
         )
+
+        show_engineering_details = st.toggle("显示工程技术细节", value=False)
+
+        with st.expander("About this project", expanded=False):
+            st.markdown(
+                """
+                **Core Capabilities**
+
+                - Semantic retrieval with Chroma / Markdown fallback
+                - Source-grounded answers
+                - Risk filtering and grounding checks
+                - Customer-ready email drafts
+                - Manual Gmail send after human confirmation
+                - Lightweight tracing and eval
+                """
+            )
 
         st.divider()
 
@@ -655,6 +795,8 @@ def render_sidebar() -> None:
             - Can InsightFlow AI guarantee stock trading profits?
             """
         )
+
+    return show_engineering_details
 
 
 def render_header() -> None:
@@ -817,7 +959,7 @@ def main() -> None:
 
     initialize_session_state()
     inject_custom_css()
-    render_sidebar()
+    show_engineering_details = render_sidebar()
     render_header()
 
     rag_tab, agent_tab, trace_tab = st.tabs(
@@ -851,10 +993,10 @@ def main() -> None:
         render_feedback_section()
 
     with agent_tab:
-        render_agent_workbench_tab()
+        render_agent_workbench_tab(show_engineering_details=show_engineering_details)
 
     with trace_tab:
-        render_trace_viewer_tab()
+        render_trace_viewer_tab(show_engineering_details=show_engineering_details)
 
 
 if __name__ == "__main__":

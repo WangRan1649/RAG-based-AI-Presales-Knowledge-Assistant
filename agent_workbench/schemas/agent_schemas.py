@@ -167,6 +167,7 @@ class EmailDraft:
 
     subject: str = ""
     body: str = ""
+    internal_review_note: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

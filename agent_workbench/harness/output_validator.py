@@ -221,6 +221,7 @@ def validate_email_draft(output: Any) -> EmailDraft:
     return EmailDraft(
         subject=_as_str(data.get("subject")),
         body=_as_str(data.get("body")),
+        internal_review_note=_as_str(data.get("internal_review_note")),
     )
 
 

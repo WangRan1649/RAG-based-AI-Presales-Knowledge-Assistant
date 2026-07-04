@@ -1,5 +1,15 @@
 # AI Pre-sales Copilot
 
+## Streamlit Sales View / Developer View
+
+The Streamlit app now separates the pre-sales experience from engineering diagnostics:
+
+- **Sales View is the default.** It shows the customer question, a customer-ready answer, review warning, readable source summary, customer email draft, and manual Gmail send area.
+- **Developer View is optional.** Enable `显示工程技术细节` in the sidebar to inspect planner output, risk decision, grounding checks, memory summary, tools called, trace preview, errors, fallback notes, and full retrieved source metadata.
+- **Trace Viewer is gated behind Developer View.** With engineering details off, the Trace Viewer tab only shows a short instruction.
+- **Customer email drafts do not include internal debug details.** The email body avoids planner/risk/critic JSON, chunk ids, source file paths, similarity scores, trace previews, memory summaries, and internal draft text.
+- **Gmail sending remains manual.** The sales user must review/edit the recipient, subject, and email body, then click the confirm-send button. The workflow never sends email automatically and eval does not depend on Gmail.
+
 ## Agent Workbench V3.0 Portfolio Demo
 
 Agent Workbench V3.0 is the portfolio-oriented version of this project. It keeps the existing RAG, Agent workflow, eval, and trace capabilities, then adds a clearer Streamlit showcase, Trace Viewer, demo questions, case study, interview Q&A, and resume bullets.
